@@ -28,6 +28,7 @@ const klineError = ref('')
 const viewOffset = ref(0) // 相对最新端回看的根数
 const dragging = ref(false)
 const pointerDown = ref(false)
+const panArmed = ref(false) // 按住一段时间后才允许拖动，避免点按误触
 const dragMoved = ref(false)
 const dragStartX = ref(0)
 const dragStartOffset = ref(0)
@@ -35,9 +36,12 @@ const panPx = ref(0) // 拖动时亚像素位移，让日K跟手更顺
 const hoverSvgX = ref(null) // 十字线连续 X，避免一格一格跳
 const loadingMore = ref(false)
 const noMoreHistory = ref(false)
-const PAN_THRESHOLD = 24
+const HOLD_BEFORE_PAN_MS = 700 // 按住多久后才允许进入拖动
+const PAN_THRESHOLD = 40 // 普通拖动位移阈值
+const FAST_PAN_THRESHOLD = 72 // 快速横滑可立刻拖动
 let moveRaf = 0
 let pendingMoveEvent = null
+let panArmTimer = 0
 
 const quote = computed(() => props.realtime)
 const points = computed(() => parseMinuteTrends(props.minute?.trends || []))
@@ -449,15 +453,32 @@ function applyDailyPan(e) {
   }
 }
 
+function clearPanArmTimer() {
+  if (panArmTimer) {
+    clearTimeout(panArmTimer)
+    panArmTimer = 0
+  }
+}
+
+function tryStartPan(dx) {
+  if (dragging.value || chartMode.value !== 'daily') return false
+  const absDx = Math.abs(dx)
+  // 按住够久且移动一定距离，或快速大幅横滑
+  const canPan =
+    (panArmed.value && absDx >= PAN_THRESHOLD) || absDx >= FAST_PAN_THRESHOLD
+  if (!canPan) return false
+  dragging.value = true
+  dragMoved.value = true
+  hoverIndex.value = -1
+  hoverSvgX.value = null
+  clearPanArmTimer()
+  return true
+}
+
 function handlePointerMove(e) {
   if (chartMode.value === 'daily' && pointerDown.value) {
     const dx = e.clientX - dragStartX.value
-    if (!dragging.value && Math.abs(dx) >= PAN_THRESHOLD) {
-      dragging.value = true
-      dragMoved.value = true
-      hoverIndex.value = -1
-      hoverSvgX.value = null
-    }
+    tryStartPan(dx)
     if (dragging.value) {
       applyDailyPan(e)
       return
@@ -468,11 +489,20 @@ function handlePointerMove(e) {
 
 function onPointerDown(e) {
   pointerDown.value = true
+  panArmed.value = false
   dragMoved.value = false
   dragging.value = false
   panPx.value = 0
   dragStartX.value = e.clientX
   dragStartOffset.value = viewOffset.value
+  clearPanArmTimer()
+  // 仅日K需要“按住一会儿才能拖”，避免点按查看被误判成拖动
+  if (chartMode.value === 'daily') {
+    panArmTimer = window.setTimeout(() => {
+      panArmed.value = true
+      panArmTimer = 0
+    }, HOLD_BEFORE_PAN_MS)
+  }
   updateHover(e)
   svgRef.value?.setPointerCapture?.(e.pointerId)
 }
@@ -492,8 +522,10 @@ function onPointerUp() {
     panPx.value = 0
   }
   pointerDown.value = false
+  panArmed.value = false
   dragging.value = false
   pendingMoveEvent = null
+  clearPanArmTimer()
   if (moveRaf) {
     cancelAnimationFrame(moveRaf)
     moveRaf = 0
@@ -518,6 +550,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   document.body.style.overflow = ''
+  clearPanArmTimer()
   if (moveRaf) cancelAnimationFrame(moveRaf)
 })
 </script>
@@ -792,7 +825,7 @@ onUnmounted(() => {
                 {{
                   loadingMore
                     ? '加载更早数据…'
-                    : '点按/滑动查看每日，大幅横滑回看历史'
+                    : '点按查看每日，按住后横滑回看历史'
                 }}
               </span>
             </template>

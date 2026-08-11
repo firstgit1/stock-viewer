@@ -4,6 +4,8 @@ dist
 *.local
 .env
 .env.*
+!.env.example
+.data
 .vscode/*
 !.vscode/extensions.json
 .idea
