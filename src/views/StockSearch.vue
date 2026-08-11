@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import StockDetailModal from '../components/StockDetailModal.vue'
 import {
   fetchRealtimeStocks,
@@ -9,7 +9,7 @@ import {
   toRealtimeCode,
 } from '../api/stock'
 
-const query = ref('中恒')
+const query = ref('')
 const loading = ref(false)
 const error = ref('')
 const items = ref([])
@@ -91,7 +91,6 @@ function closeDetail() {
   minute.value = null
 }
 
-onMounted(search)
 </script>
 
 <template>
@@ -110,7 +109,8 @@ onMounted(search)
     <p class="status" :class="{ error: !!error }">
       <template v-if="error">{{ error }}</template>
       <template v-else-if="loading">查询中…</template>
-      <template v-else>找到 {{ total }} 条结果（点击打开详情）</template>
+      <template v-else-if="items.length || total">找到 {{ total }} 条结果（点击打开详情）</template>
+      <template v-else>输入关键词后点击查询</template>
     </p>
 
     <div class="panel table-wrap desktop-only">
