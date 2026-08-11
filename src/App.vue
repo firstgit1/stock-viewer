@@ -42,6 +42,7 @@ async function onLogout() {
         <RouterLink to="/ladder">涨停天梯</RouterLink>
         <RouterLink to="/telegraph">财联社电报</RouterLink>
         <RouterLink to="/search">股票搜索</RouterLink>
+        <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
       </nav>
       <div class="brand">数据看板</div>
       <div class="userbox">
@@ -106,6 +107,15 @@ nav a:hover {
 nav a.router-link-active {
   color: #fff;
   background: rgba(47, 143, 102, 0.22);
+}
+
+nav a.admin-link {
+  color: var(--warn);
+}
+
+nav a.admin-link.router-link-active {
+  color: #fff;
+  background: rgba(212, 162, 76, 0.22);
 }
 
 .userbox {
