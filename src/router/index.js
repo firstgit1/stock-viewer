@@ -41,7 +41,7 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || '股票数据'} · 股票数据看板`
+  document.title = `${to.meta.title || '股票数据'} · 数据看板`
 })
 
 export default router

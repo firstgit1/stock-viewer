@@ -38,20 +38,18 @@ async function onLogout() {
 <template>
   <div class="app-shell">
     <header v-if="showChrome" class="topbar">
-      <div class="brand">股票数据看板</div>
-      <div class="topbar-right">
-        <nav>
-          <RouterLink to="/ladder">涨停天梯</RouterLink>
-          <RouterLink to="/telegraph">财联社电报</RouterLink>
-          <RouterLink to="/search">股票搜索</RouterLink>
-        </nav>
-        <div class="userbox">
-          <span v-if="username" class="user">
-            {{ username }}
-            <em v-if="isAdmin" class="role">管理员</em>
-          </span>
-          <button type="button" class="logout" @click="onLogout">退出</button>
-        </div>
+      <nav>
+        <RouterLink to="/ladder">涨停天梯</RouterLink>
+        <RouterLink to="/telegraph">财联社电报</RouterLink>
+        <RouterLink to="/search">股票搜索</RouterLink>
+      </nav>
+      <div class="brand">数据看板</div>
+      <div class="userbox">
+        <span v-if="username" class="user">
+          {{ username }}
+          <em v-if="isAdmin" class="role">管理员</em>
+        </span>
+        <button type="button" class="logout" @click="onLogout">退出</button>
       </div>
     </header>
     <RouterView />
@@ -64,10 +62,10 @@ async function onLogout() {
 }
 
 .topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--line);
   background: rgba(16, 21, 28, 0.82);
@@ -78,21 +76,18 @@ async function onLogout() {
 }
 
 .brand {
+  justify-self: center;
   font-weight: 750;
   letter-spacing: 0.04em;
   white-space: nowrap;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
+  text-align: center;
 }
 
 nav {
+  justify-self: start;
   display: flex;
   gap: 8px;
+  min-width: 0;
 }
 
 nav a {
@@ -114,6 +109,7 @@ nav a.router-link-active {
 }
 
 .userbox {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -157,23 +153,19 @@ nav a.router-link-active {
 
 @media (max-width: 768px) {
   .topbar {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
     gap: 10px;
     padding: 12px 12px 10px;
   }
 
   .brand {
+    order: -1;
+    justify-self: center;
     font-size: 0.98rem;
   }
 
-  .topbar-right {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
   nav {
+    justify-self: stretch;
     gap: 6px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -192,6 +184,7 @@ nav a.router-link-active {
   }
 
   .userbox {
+    justify-self: stretch;
     justify-content: space-between;
   }
 }
