@@ -8,6 +8,7 @@ const router = useRouter()
 const username = ref(getCachedUser()?.username || '')
 
 const isLoginPage = computed(() => route.name === 'login')
+const showChrome = computed(() => !isLoginPage.value && Boolean(username.value))
 
 watch(
   () => route.fullPath,
@@ -32,7 +33,7 @@ async function onLogout() {
 
 <template>
   <div class="app-shell">
-    <header v-if="!isLoginPage" class="topbar">
+    <header v-if="showChrome" class="topbar">
       <div class="brand">股票数据看板</div>
       <div class="topbar-right">
         <nav>
