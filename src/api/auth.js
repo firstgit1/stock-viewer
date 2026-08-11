@@ -1,6 +1,15 @@
 let cachedUser = null
 let checking = null
 
+function toUser(data) {
+  if (!data?.ok || !data.username) return null
+  return {
+    username: data.username,
+    role: data.role || (data.isAdmin ? 'admin' : 'user'),
+    isAdmin: Boolean(data.isAdmin || data.role === 'admin'),
+  }
+}
+
 export function getCachedUser() {
   return cachedUser
 }
@@ -21,7 +30,7 @@ export async function fetchMe({ force = false } = {}) {
         return null
       }
       const data = await res.json()
-      cachedUser = data?.ok ? { username: data.username } : null
+      cachedUser = toUser(data)
       return cachedUser
     } catch {
       cachedUser = null
@@ -45,7 +54,7 @@ async function postAuth(path, username, password) {
   if (!res.ok || !data.ok) {
     throw new Error(data.message || '操作失败')
   }
-  cachedUser = { username: data.username }
+  cachedUser = toUser(data)
   return cachedUser
 }
 

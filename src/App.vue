@@ -6,6 +6,7 @@ import { clearCachedUser, fetchMe, getCachedUser, logout } from './api/auth'
 const route = useRoute()
 const router = useRouter()
 const username = ref(getCachedUser()?.username || '')
+const isAdmin = ref(Boolean(getCachedUser()?.isAdmin))
 
 const isLoginPage = computed(() => route.name === 'login')
 const showChrome = computed(() => !isLoginPage.value && Boolean(username.value))
@@ -15,10 +16,12 @@ watch(
   async () => {
     if (isLoginPage.value) {
       username.value = ''
+      isAdmin.value = false
       return
     }
     const user = await fetchMe()
     username.value = user?.username || ''
+    isAdmin.value = Boolean(user?.isAdmin)
   },
   { immediate: true },
 )
@@ -27,6 +30,7 @@ async function onLogout() {
   await logout()
   clearCachedUser()
   username.value = ''
+  isAdmin.value = false
   await router.replace('/login')
 }
 </script>
@@ -42,7 +46,10 @@ async function onLogout() {
           <RouterLink to="/search">股票搜索</RouterLink>
         </nav>
         <div class="userbox">
-          <span v-if="username" class="user">{{ username }}</span>
+          <span v-if="username" class="user">
+            {{ username }}
+            <em v-if="isAdmin" class="role">管理员</em>
+          </span>
           <button type="button" class="logout" @click="onLogout">退出</button>
         </div>
       </div>
@@ -116,10 +123,22 @@ nav a.router-link-active {
 .user {
   color: var(--muted);
   font-size: 0.9rem;
-  max-width: 120px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role {
+  font-style: normal;
+  font-size: 0.75rem;
+  color: var(--warn);
+  border: 1px solid rgba(212, 162, 76, 0.45);
+  border-radius: 6px;
+  padding: 1px 6px;
 }
 
 .logout {
