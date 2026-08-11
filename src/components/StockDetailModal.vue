@@ -27,11 +27,17 @@ const klineLoading = ref(false)
 const klineError = ref('')
 const viewOffset = ref(0) // 相对最新端回看的根数
 const dragging = ref(false)
+const pointerDown = ref(false)
 const dragMoved = ref(false)
 const dragStartX = ref(0)
 const dragStartOffset = ref(0)
+const panPx = ref(0) // 拖动时亚像素位移，让日K跟手更顺
+const hoverSvgX = ref(null) // 十字线连续 X，避免一格一格跳
 const loadingMore = ref(false)
 const noMoreHistory = ref(false)
+const PAN_THRESHOLD = 24
+let moveRaf = 0
+let pendingMoveEvent = null
 
 const quote = computed(() => props.realtime)
 const points = computed(() => parseMinuteTrends(props.minute?.trends || []))
@@ -66,6 +72,8 @@ watch(
     viewOffset.value = 0
     noMoreHistory.value = false
     dragging.value = false
+    panPx.value = 0
+    hoverSvgX.value = null
   },
 )
 
@@ -332,12 +340,21 @@ const displayQuote = computed(() => {
 const tip = computed(() => {
   const chart = activeChart.value
   const i = hoverIndex.value
-  if (!chart || i < 0) return null
+  if (!chart || i < 0 || dragging.value) return null
+
+  const minX = chart.pad.left
+  const maxX = chart.width - chart.pad.right
+  const smoothX =
+    hoverSvgX.value == null
+      ? null
+      : Math.min(maxX, Math.max(minX, hoverSvgX.value))
+
   if (chartMode.value === 'minute') {
     const node = chart.nodes[i]
     if (!node) return null
     return {
-      x: node.x,
+      x: smoothX ?? node.x,
+      snapX: node.x,
       y: node.yClose,
       yAvg: node.yAvg,
       price: node.close,
@@ -348,12 +365,18 @@ const tip = computed(() => {
   const c = chart.candles[i]
   if (!c) return null
   return {
-    x: c.x,
+    x: smoothX ?? c.x,
+    snapX: c.x,
     y: c.yClose,
     price: c.close,
     label: c.date.slice(5),
     showAvg: false,
   }
+})
+
+const chartPanStyle = computed(() => {
+  if (chartMode.value !== 'daily' || !panPx.value) return undefined
+  return { transform: `translate3d(${panPx.value}px,0,0)` }
 })
 
 function formatAmount(n) {
@@ -377,16 +400,18 @@ function clientToSvgX(e) {
 
 function updateHover(e) {
   const chart = activeChart.value
-  if (!chart || !svgRef.value) return
+  if (!chart || !svgRef.value || dragging.value) return
   const x = clientToSvgX(e)
   if (x == null) return
 
   const { pad, innerW } = chart
   if (x < pad.left || x > pad.left + innerW) {
     hoverIndex.value = -1
+    hoverSvgX.value = null
     return
   }
 
+  hoverSvgX.value = x
   const count =
     chartMode.value === 'daily' ? chart.candles.length : chart.nodes.length
   if (count <= 1) {
@@ -405,41 +430,81 @@ function updateHover(e) {
   }
 }
 
-function onPointerDown(e) {
-  if (chartMode.value !== 'daily') return
-  dragging.value = true
-  dragMoved.value = false
-  dragStartX.value = e.clientX
-  dragStartOffset.value = viewOffset.value
-  hoverIndex.value = -1
-  svgRef.value?.setPointerCapture?.(e.pointerId)
+function applyDailyPan(e) {
+  const chart = dailyChart.value
+  if (!chart || !svgRef.value) return
+  const rect = svgRef.value.getBoundingClientRect()
+  const scale = chart.width / Math.max(rect.width, 1)
+  const dxSvg = (e.clientX - dragStartX.value) * scale
+  const slot = Math.max(chart.slot || chart.innerW / Math.max(visibleKlines.value.length, 1), 1)
+  const raw = dragStartOffset.value + dxSvg / slot
+  const clamped = Math.min(maxOffset.value, Math.max(0, raw))
+  const base = Math.floor(clamped)
+  viewOffset.value = base
+  // 残余小数段做跟手位移（向右拖看更早 → 内容右移）
+  panPx.value = (clamped - base) * slot
+
+  if (clamped > maxOffset.value - 0.2 || visibleRange.value.start < 12) {
+    loadOlderKlines()
+  }
 }
 
-function onPointerMove(e) {
-  if (dragging.value && chartMode.value === 'daily') {
-    const chart = dailyChart.value
-    if (!chart) return
-    const rect = svgRef.value.getBoundingClientRect()
-    const slotPx = (rect.width * chart.innerW) / chart.width / Math.max(visibleKlines.value.length, 1)
+function handlePointerMove(e) {
+  if (chartMode.value === 'daily' && pointerDown.value) {
     const dx = e.clientX - dragStartX.value
-    if (Math.abs(dx) > 3) dragMoved.value = true
-    // 向右拖 = 回看更早数据
-    const next = Math.max(0, dragStartOffset.value + Math.round(dx / Math.max(slotPx, 1)))
-    if (next > maxOffset.value || visibleRange.value.start < 12) {
-      loadOlderKlines()
+    if (!dragging.value && Math.abs(dx) >= PAN_THRESHOLD) {
+      dragging.value = true
+      dragMoved.value = true
+      hoverIndex.value = -1
+      hoverSvgX.value = null
     }
-    viewOffset.value = Math.min(maxOffset.value, next)
-    return
+    if (dragging.value) {
+      applyDailyPan(e)
+      return
+    }
   }
   updateHover(e)
 }
 
-function onPointerUp() {
+function onPointerDown(e) {
+  pointerDown.value = true
+  dragMoved.value = false
   dragging.value = false
+  panPx.value = 0
+  dragStartX.value = e.clientX
+  dragStartOffset.value = viewOffset.value
+  updateHover(e)
+  svgRef.value?.setPointerCapture?.(e.pointerId)
+}
+
+function onPointerMove(e) {
+  pendingMoveEvent = e
+  if (moveRaf) return
+  moveRaf = requestAnimationFrame(() => {
+    moveRaf = 0
+    if (pendingMoveEvent) handlePointerMove(pendingMoveEvent)
+  })
+}
+
+function onPointerUp() {
+  if (dragging.value) {
+    // 松手吸附到整数根 K 线
+    panPx.value = 0
+  }
+  pointerDown.value = false
+  dragging.value = false
+  pendingMoveEvent = null
+  if (moveRaf) {
+    cancelAnimationFrame(moveRaf)
+    moveRaf = 0
+  }
 }
 
 function onLeave() {
-  if (!dragging.value) hoverIndex.value = -1
+  if (!pointerDown.value && !dragging.value) {
+    hoverIndex.value = -1
+    hoverSvgX.value = null
+  }
 }
 
 function onKey(e) {
@@ -453,6 +518,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   document.body.style.overflow = ''
+  if (moveRaf) cancelAnimationFrame(moveRaf)
 })
 </script>
 
@@ -526,7 +592,7 @@ onUnmounted(() => {
         <div v-else-if="chartMode === 'daily' && klineError" class="state err">
           {{ klineError }}
         </div>
-        <div v-else-if="activeChart" class="chart-wrap">
+        <div v-else-if="activeChart" class="chart-wrap" :class="{ panning: dragging }">
           <svg
             ref="svgRef"
             :class="{ dragging: dragging && chartMode === 'daily', daily: chartMode === 'daily' }"
@@ -538,43 +604,85 @@ onUnmounted(() => {
             @pointercancel="onPointerUp"
             @mouseleave="onLeave"
           >
-            <!-- 分时 -->
-            <template v-if="chartMode === 'minute'">
-              <line
-                class="base"
-                :x1="activeChart.pad.left"
-                :x2="activeChart.width - activeChart.pad.right"
-                :y1="activeChart.baseY"
-                :y2="activeChart.baseY"
-              />
-              <polyline class="avg" fill="none" :points="activeChart.avgLine" />
-              <polyline class="price" fill="none" :points="activeChart.priceLine" />
-            </template>
-
-            <!-- 日K -->
-            <template v-else>
-              <polyline class="ma5" fill="none" :points="activeChart.ma5Line" />
-              <polyline class="ma10" fill="none" :points="activeChart.ma10Line" />
-              <polyline class="ma20" fill="none" :points="activeChart.ma20Line" />
-              <g v-for="c in activeChart.candles" :key="c.date">
+            <g class="chart-layer" :style="chartPanStyle">
+              <!-- 分时 -->
+              <template v-if="chartMode === 'minute'">
                 <line
-                  :x1="c.x"
-                  :x2="c.x"
-                  :y1="c.yHigh"
-                  :y2="c.yLow"
-                  :class="c.up ? 'candle-up' : 'candle-down'"
+                  class="base"
+                  :x1="activeChart.pad.left"
+                  :x2="activeChart.width - activeChart.pad.right"
+                  :y1="activeChart.baseY"
+                  :y2="activeChart.baseY"
                 />
+                <polyline
+                  class="avg"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="activeChart.avgLine"
+                />
+                <polyline
+                  class="price"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="activeChart.priceLine"
+                />
+              </template>
+
+              <!-- 日K -->
+              <template v-else>
+                <polyline
+                  class="ma5"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="activeChart.ma5Line"
+                />
+                <polyline
+                  class="ma10"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="activeChart.ma10Line"
+                />
+                <polyline
+                  class="ma20"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :points="activeChart.ma20Line"
+                />
+                <g v-for="c in activeChart.candles" :key="c.date">
+                  <line
+                    :x1="c.x"
+                    :x2="c.x"
+                    :y1="c.yHigh"
+                    :y2="c.yLow"
+                    :class="c.up ? 'candle-up' : 'candle-down'"
+                  />
+                  <rect
+                    :x="c.x - c.bodyW / 2"
+                    :y="c.bodyTop"
+                    :width="c.bodyW"
+                    :height="c.bodyH"
+                    :class="c.up ? 'candle-up-fill' : 'candle-down-fill'"
+                  />
+                </g>
+              </template>
+
+              <g v-for="(b, i) in activeChart.bars" :key="'v' + i">
                 <rect
-                  :x="c.x - c.bodyW / 2"
-                  :y="c.bodyTop"
-                  :width="c.bodyW"
-                  :height="c.bodyH"
-                  :class="c.up ? 'candle-up-fill' : 'candle-down-fill'"
+                  :x="b.x - b.w / 2"
+                  :y="b.y"
+                  :width="b.w"
+                  :height="Math.max(b.h, 0.5)"
+                  :class="b.up ? 'vol-up' : 'vol-down'"
                 />
               </g>
-            </template>
+            </g>
 
-            <g v-if="tip">
+            <g v-if="tip" class="tip-layer">
               <line
                 class="cross"
                 :x1="tip.x"
@@ -582,11 +690,11 @@ onUnmounted(() => {
                 :y1="activeChart.pad.top"
                 :y2="activeChart.height - 18"
               />
-              <circle class="dot-price" :cx="tip.x" :cy="tip.y" r="4" />
+              <circle class="dot-price" :cx="tip.snapX" :cy="tip.y" r="4" />
               <circle
                 v-if="tip.showAvg"
                 class="dot-avg"
-                :cx="tip.x"
+                :cx="tip.snapX"
                 :cy="tip.yAvg"
                 r="3.5"
               />
@@ -650,16 +758,6 @@ onUnmounted(() => {
               {{ activeChart.min.toFixed(2) }}
             </text>
 
-            <g v-for="(b, i) in activeChart.bars" :key="'v' + i">
-              <rect
-                :x="b.x - b.w / 2"
-                :y="b.y"
-                :width="b.w"
-                :height="Math.max(b.h, 0.5)"
-                :class="b.up ? 'vol-up' : 'vol-down'"
-              />
-            </g>
-
             <text class="axis" :x="activeChart.pad.left" :y="activeChart.height - 4">
               {{ activeChart.labels[0] }}
             </text>
@@ -691,7 +789,11 @@ onUnmounted(() => {
               <span class="l-ma10">MA10</span>
               <span class="l-ma20">MA20</span>
               <span class="drag-hint">
-                {{ loadingMore ? '加载更早数据…' : '按住拖动可查看历史' }}
+                {{
+                  loadingMore
+                    ? '加载更早数据…'
+                    : '点按/滑动查看每日，大幅横滑回看历史'
+                }}
               </span>
             </template>
           </div>
@@ -845,6 +947,15 @@ onUnmounted(() => {
 .chart-wrap {
   position: relative;
   padding: 0 12px 8px;
+  contain: layout paint;
+}
+
+.chart-wrap.panning .chart-layer {
+  will-change: transform;
+}
+
+.chart-layer {
+  transform: translate3d(0, 0, 0);
 }
 
 svg {
@@ -875,6 +986,18 @@ svg.dragging {
 
 .cross {
   stroke: #6b7280;
+  stroke-dasharray: 3 3;
+}
+
+.tip-layer {
+  pointer-events: none;
+}
+
+.tip-layer .badge,
+.tip-layer .badge-text,
+.tip-layer .dot-price,
+.tip-layer .dot-avg {
+  transition: x 40ms linear, y 40ms linear, cx 40ms linear, cy 40ms linear;
 }
 
 .price {
@@ -900,6 +1023,14 @@ svg.dragging {
 .ma20 {
   stroke: #a855f7;
   stroke-width: 1.4;
+}
+
+.price,
+.avg,
+.ma5,
+.ma10,
+.ma20 {
+  vector-effect: non-scaling-stroke;
 }
 
 .candle-up,
