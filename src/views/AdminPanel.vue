@@ -1,13 +1,16 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
 
 const features = ref(Object.fromEntries(FEATURE_DEFS.map((x) => [x.key, true])))
 const loading = ref(true)
-const savingKey = ref('')
+const saving = ref(false)
 const message = ref('')
 const error = ref('')
+
+let saveTimer = 0
+let saveGeneration = 0
 
 async function load() {
   loading.value = true
@@ -22,26 +25,56 @@ async function load() {
   }
 }
 
-async function toggle(key) {
-  const next = !features.value[key]
-  const prev = features.value[key]
-  features.value = { ...features.value, [key]: next }
-  savingKey.value = key
-  message.value = ''
+function toggle(key) {
+  features.value = {
+    ...features.value,
+    [key]: !features.value[key],
+  }
   error.value = ''
+  message.value = '保存中…'
+  scheduleSave()
+}
+
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer)
+  // 连续点击先只改本地，停手后再统一提交，避免并发互相覆盖
+  saveTimer = window.setTimeout(() => {
+    saveTimer = 0
+    flushSave()
+  }, 320)
+}
+
+async function flushSave() {
+  const generation = ++saveGeneration
+  const snapshot = { ...features.value }
+  saving.value = true
   try {
-    const data = await updateFeatures({ [key]: next })
-    features.value = { ...features.value, ...data.features }
+    await updateFeatures(snapshot)
+    if (generation !== saveGeneration) return
+
+    const drifted = FEATURE_DEFS.some((item) => features.value[item.key] !== snapshot[item.key])
+    if (drifted) {
+      scheduleSave()
+      return
+    }
+
     message.value = '已保存'
   } catch (e) {
-    features.value = { ...features.value, [key]: prev }
+    if (generation !== saveGeneration) return
     error.value = e?.message || '保存失败'
+    message.value = ''
+    await load()
   } finally {
-    savingKey.value = ''
+    if (generation === saveGeneration) saving.value = false
   }
 }
 
 onMounted(load)
+
+onBeforeUnmount(() => {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveGeneration += 1
+})
 </script>
 
 <template>
@@ -53,11 +86,14 @@ onMounted(load)
       </div>
     </div>
 
-    <p v-if="loading" class="status">加载中…</p>
-    <p v-else-if="error" class="status error">{{ error }}</p>
-    <p v-else-if="message" class="status ok">{{ message }}</p>
+    <p class="status" :class="{ error: !!error, ok: !error && message === '已保存' }">
+      <template v-if="loading">加载中…</template>
+      <template v-else-if="error">{{ error }}</template>
+      <template v-else-if="message">{{ message }}</template>
+      <template v-else>&nbsp;</template>
+    </p>
 
-    <section v-if="!loading" class="switch-list">
+    <section class="switch-list" :class="{ dim: loading }">
       <div v-for="item in FEATURE_DEFS" :key="item.key" class="switch-row">
         <div class="meta">
           <h2>{{ item.label }}</h2>
@@ -71,7 +107,7 @@ onMounted(load)
             type="button"
             class="switch"
             :class="{ on: features[item.key] }"
-            :disabled="savingKey === item.key"
+            :disabled="loading"
             :aria-pressed="features[item.key]"
             @click="toggle(item.key)"
           >
@@ -84,6 +120,13 @@ onMounted(load)
 </template>
 
 <style scoped>
+.status {
+  min-height: 1.4em;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .status.error {
   color: var(--danger);
 }
@@ -95,6 +138,11 @@ onMounted(load)
 .switch-list {
   display: grid;
   gap: 12px;
+}
+
+.switch-list.dim {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .switch-row {
