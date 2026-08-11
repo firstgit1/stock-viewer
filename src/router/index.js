@@ -1,10 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { fetchMe } from '../api/auth'
+import FeatureGate from '../components/FeatureGate.vue'
 import AdminPanel from '../views/AdminPanel.vue'
-import LadderDay from '../views/LadderDay.vue'
 import Login from '../views/Login.vue'
-import StockSearch from '../views/StockSearch.vue'
-import Telegraph from '../views/Telegraph.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -16,9 +14,27 @@ const router = createRouter({
       component: Login,
       meta: { title: '登录', public: true },
     },
-    { path: '/ladder', name: 'ladder', component: LadderDay, meta: { title: '涨停天梯' } },
-    { path: '/telegraph', name: 'telegraph', component: Telegraph, meta: { title: '财联社电报' } },
-    { path: '/search', name: 'search', component: StockSearch, meta: { title: '股票搜索' } },
+    {
+      path: '/ladder',
+      name: 'ladder',
+      component: FeatureGate,
+      props: { feature: 'ladder' },
+      meta: { title: '涨停天梯', feature: 'ladder' },
+    },
+    {
+      path: '/telegraph',
+      name: 'telegraph',
+      component: FeatureGate,
+      props: { feature: 'telegraph' },
+      meta: { title: '财联社电报', feature: 'telegraph' },
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: FeatureGate,
+      props: { feature: 'search' },
+      meta: { title: '股票搜索', feature: 'search' },
+    },
     {
       path: '/admin',
       name: 'admin',

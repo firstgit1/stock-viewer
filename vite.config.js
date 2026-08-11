@@ -8,6 +8,7 @@ import {
   handleRegister,
   sendJson,
 } from './lib/auth-handlers.js'
+import { handleGetFeatures, handleUpdateFeatures } from './lib/feature-handlers.js'
 
 function localAuthApi() {
   return {
@@ -31,6 +32,13 @@ function localAuthApi() {
           }
           if (url === '/api/me' && req.method === 'GET') {
             return sendJson(res, handleMe(req.headers.cookie || ''))
+          }
+          if (url === '/api/features' && req.method === 'GET') {
+            return sendJson(res, await handleGetFeatures(req.headers.cookie || ''))
+          }
+          if (url === '/api/admin/features' && (req.method === 'PUT' || req.method === 'POST')) {
+            const body = await readJsonBody(req)
+            return sendJson(res, await handleUpdateFeatures(req.headers.cookie || '', body))
           }
         } catch {
           return sendJson(res, { status: 400, data: { ok: false, message: '请求无效' } })
