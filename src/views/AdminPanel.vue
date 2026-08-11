@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
 
@@ -8,9 +8,6 @@ const loading = ref(true)
 const saving = ref(false)
 const message = ref('')
 const error = ref('')
-
-let saveTimer = 0
-let saveGeneration = 0
 
 async function load() {
   loading.value = true
@@ -25,56 +22,32 @@ async function load() {
   }
 }
 
-function toggle(key) {
-  features.value = {
+async function toggle(key) {
+  if (loading.value || saving.value) return
+
+  const prev = { ...features.value }
+  const next = {
     ...features.value,
     [key]: !features.value[key],
   }
+  features.value = next
   error.value = ''
-  message.value = '保存中…'
-  scheduleSave()
-}
-
-function scheduleSave() {
-  if (saveTimer) clearTimeout(saveTimer)
-  // 连续点击先只改本地，停手后再统一提交，避免并发互相覆盖
-  saveTimer = window.setTimeout(() => {
-    saveTimer = 0
-    flushSave()
-  }, 320)
-}
-
-async function flushSave() {
-  const generation = ++saveGeneration
-  const snapshot = { ...features.value }
+  message.value = ''
   saving.value = true
+
   try {
-    await updateFeatures(snapshot)
-    if (generation !== saveGeneration) return
-
-    const drifted = FEATURE_DEFS.some((item) => features.value[item.key] !== snapshot[item.key])
-    if (drifted) {
-      scheduleSave()
-      return
-    }
-
+    const data = await updateFeatures(next)
+    features.value = { ...features.value, ...data.features }
     message.value = '已保存'
   } catch (e) {
-    if (generation !== saveGeneration) return
+    features.value = prev
     error.value = e?.message || '保存失败'
-    message.value = ''
-    await load()
   } finally {
-    if (generation === saveGeneration) saving.value = false
+    saving.value = false
   }
 }
 
 onMounted(load)
-
-onBeforeUnmount(() => {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveGeneration += 1
-})
 </script>
 
 <template>
@@ -86,33 +59,42 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <p class="status" :class="{ error: !!error, ok: !error && message === '已保存' }">
+    <p class="status" :class="{ error: !!error, ok: !error && !!message }">
       <template v-if="loading">加载中…</template>
       <template v-else-if="error">{{ error }}</template>
       <template v-else-if="message">{{ message }}</template>
       <template v-else>&nbsp;</template>
     </p>
 
-    <section class="switch-list" :class="{ dim: loading }">
-      <div v-for="item in FEATURE_DEFS" :key="item.key" class="switch-row">
-        <div class="meta">
-          <h2>{{ item.label }}</h2>
-          <p>{{ item.description }}</p>
+    <section class="panel">
+      <div class="switch-list" :class="{ dim: loading }">
+        <div v-for="item in FEATURE_DEFS" :key="item.key" class="switch-row">
+          <div class="meta">
+            <h2>{{ item.label }}</h2>
+            <p>{{ item.description }}</p>
+          </div>
+          <div class="control">
+            <span class="state" :class="{ on: features[item.key] }">
+              {{ features[item.key] ? '已开启' : '已关闭' }}
+            </span>
+            <button
+              type="button"
+              class="switch"
+              :class="{ on: features[item.key] }"
+              :disabled="loading || saving"
+              :aria-pressed="features[item.key]"
+              @click="toggle(item.key)"
+            >
+              <span class="knob" />
+            </button>
+          </div>
         </div>
-        <div class="control">
-          <span class="state" :class="{ on: features[item.key] }">
-            {{ features[item.key] ? '已开启' : '已关闭' }}
-          </span>
-          <button
-            type="button"
-            class="switch"
-            :class="{ on: features[item.key] }"
-            :disabled="loading"
-            :aria-pressed="features[item.key]"
-            @click="toggle(item.key)"
-          >
-            <span class="knob" />
-          </button>
+      </div>
+
+      <div v-if="saving" class="overlay" aria-live="polite" aria-busy="true">
+        <div class="overlay-card">
+          <span class="spinner" />
+          <p>保存中，请稍候…</p>
         </div>
       </div>
     </section>
@@ -133,6 +115,10 @@ onBeforeUnmount(() => {
 
 .status.ok {
   color: var(--accent-hover);
+}
+
+.panel {
+  position: relative;
 }
 
 .switch-list {
@@ -204,12 +190,60 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+.switch:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+
 .knob {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   background: #fff;
   display: block;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(10, 14, 20, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.overlay-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(27, 36, 48, 0.96);
+  box-shadow: var(--shadow);
+}
+
+.overlay-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent-hover);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 640px) {
