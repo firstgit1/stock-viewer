@@ -42,10 +42,10 @@ async function onLogout() {
         <RouterLink to="/ladder">涨停天梯</RouterLink>
         <RouterLink to="/telegraph">财联社电报</RouterLink>
         <RouterLink to="/search">股票搜索</RouterLink>
-        <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
       </nav>
       <div class="brand">数据看板</div>
       <div class="userbox">
+        <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
         <span v-if="username" class="user">
           {{ username }}
           <em v-if="isAdmin" class="role">管理员</em>
@@ -109,21 +109,33 @@ nav a.router-link-active {
   background: rgba(47, 143, 102, 0.22);
 }
 
-nav a.admin-link {
-  color: var(--warn);
-}
-
-nav a.admin-link.router-link-active {
-  color: #fff;
-  background: rgba(212, 162, 76, 0.22);
-}
-
 .userbox {
   justify-self: end;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.admin-link {
+  padding: 7px 11px;
+  border-radius: 8px;
+  color: var(--warn);
+  border: 1px solid rgba(212, 162, 76, 0.35);
+  white-space: nowrap;
+  font-size: 0.9rem;
+  transition: 0.15s ease;
+}
+
+.admin-link:hover {
+  background: rgba(212, 162, 76, 0.12);
+  color: #e4b96a;
+}
+
+.admin-link.router-link-active {
+  color: #fff;
+  background: rgba(212, 162, 76, 0.22);
+  border-color: rgba(212, 162, 76, 0.5);
 }
 
 .user {
