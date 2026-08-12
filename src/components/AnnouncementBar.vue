@@ -74,12 +74,12 @@ defineExpose({ reload: load })
 .announce {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  padding: 7px 14px;
-  border-bottom: 1px solid rgba(212, 162, 76, 0.28);
-  background: #161d27;
-  color: #f0d59a;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 196, 88, 0.45);
+  background: linear-gradient(90deg, #5a3a12 0%, #7a4f18 45%, #3d5a2e 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 140, 0.18);
   box-sizing: border-box;
 }
 
@@ -88,10 +88,17 @@ defineExpose({ reload: load })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  color: var(--warn);
-  opacity: 0.95;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 210, 100, 0.22);
+  border: 1px solid rgba(255, 214, 120, 0.55);
+  color: #ffe08a;
+}
+
+.horn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .viewport {
@@ -114,9 +121,11 @@ defineExpose({ reload: load })
 }
 
 .msg {
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: #f3e0b0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #fff6d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
 @keyframes marquee-once {
@@ -134,13 +143,18 @@ defineExpose({ reload: load })
 
 @media (max-width: 768px) {
   .announce {
-    gap: 8px;
-    min-height: 34px;
-    padding: 6px 10px;
+    gap: 10px;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .horn {
+    width: 26px;
+    height: 26px;
   }
 
   .msg {
-    font-size: 0.84rem;
+    font-size: 0.95rem;
   }
 }
 
