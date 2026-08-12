@@ -268,22 +268,22 @@ onMounted(() => {
     </p>
 
     <h2 class="section-title">微信推送</h2>
-    <section class="panel">
-      <div class="toolbar">
-        <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
-          立即推送
-        </button>
-        <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="loadPush">
-          刷新列表
-        </button>
-        <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="openAdd">
-          添加用户
-        </button>
-      </div>
+    <div class="toolbar">
+      <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
+        立即推送
+      </button>
+      <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="loadPush">
+        刷新列表
+      </button>
+      <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="openAdd">
+        添加用户
+      </button>
+    </div>
 
-      <p v-if="pushLoading" class="status">推送用户加载中…</p>
+    <p v-if="pushLoading" class="status">推送用户加载中…</p>
 
-      <div v-else class="push-table" :class="{ dim: pushBusy }">
+    <section v-else class="panel push-panel">
+      <div class="push-table" :class="{ dim: pushBusy }">
         <table class="user-table">
           <thead>
             <tr>
@@ -436,11 +436,15 @@ onMounted(() => {
   margin-bottom: 22px;
 }
 
+.push-panel {
+  overflow: hidden;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: 0 0 12px;
 }
 
 .primary,
