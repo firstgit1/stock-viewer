@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
+import { fetchAnnouncement, updateAnnouncement } from '../api/announcement'
 import { fetchPushUsers, runPushNow, saveUserPush } from '../api/push'
 import { toast } from '../composables/toast'
 
@@ -9,6 +10,11 @@ const features = ref(Object.fromEntries(FEATURE_DEFS.map((x) => [x.key, true])))
 const loading = ref(true)
 const saving = ref(false)
 const loadError = ref('')
+
+const announceEnabled = ref(false)
+const announceText = ref('')
+const announceSaving = ref(false)
+const announceLoading = ref(true)
 
 const pushUsers = ref([])
 const pushLoading = ref(true)
@@ -89,6 +95,41 @@ async function loadFeatures() {
     loadError.value = e?.message || '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadAnnounce() {
+  announceLoading.value = true
+  try {
+    const data = await fetchAnnouncement({ force: true })
+    announceEnabled.value = Boolean(data.enabled)
+    announceText.value = String(data.text || '')
+  } catch (e) {
+    toast.error(e?.message || '加载公告失败')
+  } finally {
+    announceLoading.value = false
+  }
+}
+
+async function saveAnnounce() {
+  if (announceSaving.value) return
+  if (announceEnabled.value && !announceText.value.trim()) {
+    toast.error('开启公告前请填写内容')
+    return
+  }
+  announceSaving.value = true
+  try {
+    const data = await updateAnnouncement({
+      enabled: announceEnabled.value,
+      text: announceText.value,
+    })
+    announceEnabled.value = Boolean(data.enabled)
+    announceText.value = String(data.text || '')
+    toast.success(data.enabled ? '公告已开启' : '公告已保存')
+  } catch (e) {
+    toast.error(e?.message || '保存公告失败')
+  } finally {
+    announceSaving.value = false
   }
 }
 
@@ -279,6 +320,7 @@ async function onSkipBacklog() {
 onMounted(() => {
   loadFeatures()
   loadPush()
+  loadAnnounce()
 })
 </script>
 
@@ -353,6 +395,47 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <h2 class="section-title">站点公告</h2>
+    <section class="panel announce-panel" :class="{ dim: announceLoading || announceSaving }">
+      <p class="muted announce-hint">登录后页面顶部小喇叭滚动展示；关闭或清空后不显示。</p>
+      <div class="announce-form">
+        <label class="field announce-text">
+          <span>公告内容（最多 500 字）</span>
+          <textarea
+            v-model="announceText"
+            rows="3"
+            maxlength="500"
+            placeholder="例如：系统维护通知、使用说明等"
+          />
+        </label>
+        <div class="announce-actions">
+          <div class="control">
+            <span class="state" :class="{ on: announceEnabled }">
+              {{ announceEnabled ? '展示中' : '已关闭' }}
+            </span>
+            <button
+              type="button"
+              class="switch"
+              :class="{ on: announceEnabled }"
+              :disabled="announceLoading || announceSaving"
+              :aria-pressed="announceEnabled"
+              @click="announceEnabled = !announceEnabled"
+            >
+              <span class="knob" />
+            </button>
+          </div>
+          <button
+            type="button"
+            class="primary"
+            :disabled="announceLoading || announceSaving"
+            @click="saveAnnounce"
+          >
+            {{ announceSaving ? '保存中…' : '保存公告' }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -621,17 +704,43 @@ onMounted(() => {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(12, 18, 26, 0.85);
   color: var(--text);
   padding: 9px 12px;
+  font: inherit;
+  resize: vertical;
 }
 
 .field select {
   appearance: none;
+}
+
+.announce-hint {
+  margin: 0 0 14px;
+  font-size: 0.88rem;
+}
+
+.announce-form {
+  display: grid;
+  gap: 14px;
+}
+
+.announce-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.announce-panel.dim {
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .check {

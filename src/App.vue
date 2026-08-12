@@ -2,12 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { clearCachedUser, fetchMe, getCachedUser, logout } from './api/auth'
+import AnnouncementBar from './components/AnnouncementBar.vue'
 import ToastHost from './components/ToastHost.vue'
 
 const route = useRoute()
 const router = useRouter()
 const username = ref(getCachedUser()?.username || '')
 const isAdmin = ref(Boolean(getCachedUser()?.isAdmin))
+const announceRef = ref(null)
 
 const isLoginPage = computed(() => route.name === 'login')
 const showChrome = computed(() => !isLoginPage.value && Boolean(username.value))
@@ -23,6 +25,7 @@ watch(
     const user = await fetchMe()
     username.value = user?.username || ''
     isAdmin.value = Boolean(user?.isAdmin)
+    announceRef.value?.reload?.()
   },
   { immediate: true },
 )
@@ -38,23 +41,26 @@ async function onLogout() {
 
 <template>
   <div class="app-shell">
-    <header v-if="showChrome" class="topbar">
-      <nav>
-        <RouterLink to="/ladder">涨停天梯</RouterLink>
-        <RouterLink to="/telegraph">财联社电报</RouterLink>
-        <RouterLink to="/search">搜索</RouterLink>
-        <RouterLink to="/severe-abnormal">严重异动</RouterLink>
-      </nav>
-      <div class="brand">数据看板</div>
-      <div class="userbox">
-        <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
-        <span v-if="username" class="user">
-          {{ username }}
-          <em v-if="isAdmin" class="role">管理员</em>
-        </span>
-        <button type="button" class="logout" @click="onLogout">退出</button>
-      </div>
-    </header>
+    <div v-if="showChrome" class="chrome-sticky">
+      <AnnouncementBar ref="announceRef" :active="showChrome" />
+      <header class="topbar">
+        <nav>
+          <RouterLink to="/ladder">涨停天梯</RouterLink>
+          <RouterLink to="/telegraph">财联社电报</RouterLink>
+          <RouterLink to="/search">搜索</RouterLink>
+          <RouterLink to="/severe-abnormal">严重异动</RouterLink>
+        </nav>
+        <div class="brand">数据看板</div>
+        <div class="userbox">
+          <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
+          <span v-if="username" class="user">
+            {{ username }}
+            <em v-if="isAdmin" class="role">管理员</em>
+          </span>
+          <button type="button" class="logout" @click="onLogout">退出</button>
+        </div>
+      </header>
+    </div>
     <RouterView />
     <ToastHost />
   </div>
@@ -63,6 +69,12 @@ async function onLogout() {
 <style scoped>
 .app-shell {
   min-height: 100vh;
+}
+
+.chrome-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .topbar {
@@ -74,9 +86,6 @@ async function onLogout() {
   border-bottom: 1px solid var(--line);
   background: rgba(16, 21, 28, 0.82);
   backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
-  z-index: 20;
 }
 
 .brand {

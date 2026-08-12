@@ -10,6 +10,10 @@ import {
 } from './lib/auth-handlers.js'
 import { handleGetFeatures, handleUpdateFeatures } from './lib/feature-handlers.js'
 import {
+  handleGetAnnouncement,
+  handleUpdateAnnouncement,
+} from './lib/announcement-handlers.js'
+import {
   handleGetPushConfig,
   handleRunPush,
   handleSavePushConfig,
@@ -45,6 +49,13 @@ function localAuthApi() {
           if (url === '/api/admin/features' && (req.method === 'PUT' || req.method === 'POST')) {
             const body = await readJsonBody(req)
             return sendJson(res, await handleUpdateFeatures(req.headers.cookie || '', body))
+          }
+          if (url === '/api/announcement' && req.method === 'GET') {
+            return sendJson(res, await handleGetAnnouncement(req.headers.cookie || ''))
+          }
+          if (url === '/api/announcement' && (req.method === 'PUT' || req.method === 'POST')) {
+            const body = await readJsonBody(req)
+            return sendJson(res, await handleUpdateAnnouncement(req.headers.cookie || '', body))
           }
           if (url === '/api/push/config' && req.method === 'GET') {
             return sendJson(res, await handleGetPushConfig(req.headers.cookie || ''))
