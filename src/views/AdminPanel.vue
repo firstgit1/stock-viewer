@@ -238,12 +238,6 @@ onMounted(() => {
 
     <h2 class="section-title">微信推送</h2>
     <section class="panel">
-      <p class="hint">
-        用户在
-        <a href="https://www.pushplus.plus" target="_blank" rel="noreferrer">pushplus.plus</a>
-        获取 Token 后，由你在列表中配置。点「立即推送」会发给所有「可推送」用户。
-      </p>
-
       <div class="toolbar">
         <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
           立即推送
@@ -390,17 +384,6 @@ onMounted(() => {
   margin-bottom: 22px;
 }
 
-.hint {
-  margin: 0 0 14px;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
-
-.hint a {
-  color: #7ed7f2;
-}
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -519,23 +502,17 @@ onMounted(() => {
 }
 
 .badge {
-  display: inline-block;
-  font-size: 0.78rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
+  font-size: 0.82rem;
   color: var(--muted);
+  letter-spacing: 0.02em;
 }
 
 .badge.ok {
-  color: #9be7c0;
-  border-color: rgba(57, 166, 117, 0.65);
-  background: rgba(47, 143, 102, 0.18);
+  color: #7dcea0;
 }
 
 .badge.off {
-  color: #f0c674;
-  border-color: rgba(240, 198, 116, 0.4);
+  color: #d4a84b;
 }
 
 .badge.empty {
