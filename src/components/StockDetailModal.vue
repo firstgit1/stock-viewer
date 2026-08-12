@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   calcMA,
   fetchDailyKline,
+  MINUTE_TOTAL_SLOTS,
+  minuteTimeToSlot,
   parseMinuteTrends,
   prevTradeEndDate,
 } from '../api/stock'
@@ -154,16 +156,25 @@ const minuteChart = computed(() => {
   }
   const span = max - min
   const maxVol = Math.max(...list.map((p) => p.vol), 1)
-  const xAt = (i) => pad.left + (i / Math.max(list.length - 1, 1)) * innerW
+  // 按完整交易日 242 分钟定位，未到的时段留白，避免把已有数据拉满到 15:00
+  const totalSlots = Math.max(MINUTE_TOTAL_SLOTS, 2)
+  const xAtSlot = (slot) => pad.left + (slot / (totalSlots - 1)) * innerW
   const yAt = (price) => pad.top + ((max - price) / span) * innerPriceH
 
-  const nodes = list.map((p, i) => ({
-    ...p,
-    i,
-    x: xAt(i),
-    yClose: yAt(p.close),
-    yAvg: yAt(p.avg),
-  }))
+  const nodes = list
+    .map((p, i) => {
+      let slot = minuteTimeToSlot(p.time)
+      if (slot < 0) slot = Math.min(i, totalSlots - 1)
+      return {
+        ...p,
+        i,
+        slot,
+        x: xAtSlot(slot),
+        yClose: yAt(p.close),
+        yAvg: yAt(p.avg),
+      }
+    })
+    .sort((a, b) => a.slot - b.slot)
 
   return {
     width,
@@ -171,6 +182,7 @@ const minuteChart = computed(() => {
     priceH,
     pad,
     innerW,
+    totalSlots,
     priceLine: nodes.map((p) => `${p.x},${p.yClose}`).join(' '),
     avgLine: nodes.map((p) => `${p.x},${p.yAvg}`).join(' '),
     baseY: yAt(prePrice),
@@ -184,7 +196,7 @@ const minuteChart = computed(() => {
         y: priceH + gap + (volH - 18 - h),
         h,
         up: p.close >= prePrice,
-        w: Math.max(innerW / list.length - 0.6, 1),
+        w: Math.max(innerW / totalSlots - 0.4, 0.8),
       }
     }),
     nodes,
@@ -428,9 +440,22 @@ function updateHover(e) {
     const idx = Math.floor((x - pad.left) / slot)
     hoverIndex.value = Math.min(count - 1, Math.max(0, idx))
   } else {
-    const ratio = (x - pad.left) / innerW
-    const idx = Math.round(ratio * (count - 1))
-    hoverIndex.value = Math.min(count - 1, Math.max(0, idx))
+    // 分时按实际点位就近吸附（右侧未开盘区域会落到最后一个已有点）
+    const nodes = chart.nodes || []
+    if (!nodes.length) {
+      hoverIndex.value = -1
+      return
+    }
+    let best = 0
+    let bestDist = Infinity
+    for (let i = 0; i < nodes.length; i++) {
+      const d = Math.abs(nodes[i].x - x)
+      if (d < bestDist) {
+        bestDist = d
+        best = i
+      }
+    }
+    hoverIndex.value = best
   }
 }
 

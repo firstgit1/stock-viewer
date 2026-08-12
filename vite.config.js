@@ -9,6 +9,12 @@ import {
   sendJson,
 } from './lib/auth-handlers.js'
 import { handleGetFeatures, handleUpdateFeatures } from './lib/feature-handlers.js'
+import {
+  handleGetPushConfig,
+  handleRunPush,
+  handleSavePushConfig,
+  handleTestPush,
+} from './lib/push-handlers.js'
 
 function localAuthApi() {
   return {
@@ -39,6 +45,29 @@ function localAuthApi() {
           if (url === '/api/admin/features' && (req.method === 'PUT' || req.method === 'POST')) {
             const body = await readJsonBody(req)
             return sendJson(res, await handleUpdateFeatures(req.headers.cookie || '', body))
+          }
+          if (url === '/api/admin/push-config' && req.method === 'GET') {
+            return sendJson(res, await handleGetPushConfig(req.headers.cookie || ''))
+          }
+          if (url === '/api/admin/push-config' && (req.method === 'PUT' || req.method === 'POST')) {
+            const body = await readJsonBody(req)
+            return sendJson(res, await handleSavePushConfig(req.headers.cookie || '', body))
+          }
+          if (url === '/api/admin/push-test' && req.method === 'POST') {
+            const body = await readJsonBody(req)
+            return sendJson(res, await handleTestPush(req.headers.cookie || '', body))
+          }
+          if (url === '/api/admin/push-run' && req.method === 'POST') {
+            return sendJson(res, await handleRunPush(req.headers.cookie || ''))
+          }
+          if (url === '/api/cron/telegraph-push' && (req.method === 'GET' || req.method === 'POST')) {
+            const { runTelegraphPush } = await import('./lib/telegraph-push.js')
+            const { assertCronAuth } = await import('./lib/push-handlers.js')
+            if (!assertCronAuth(req)) {
+              return sendJson(res, { status: 401, data: { ok: false, message: 'Unauthorized' } })
+            }
+            const result = await runTelegraphPush()
+            return sendJson(res, { status: 200, data: { ok: true, result } })
           }
         } catch {
           return sendJson(res, { status: 400, data: { ok: false, message: '请求无效' } })

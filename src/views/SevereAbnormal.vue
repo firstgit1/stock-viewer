@@ -7,7 +7,7 @@ const error = ref('')
 const list = ref([])
 const stats = ref(null)
 const keyword = ref('')
-const expanded = ref('')
+const expanded = ref(new Set())
 
 async function load() {
   if (loading.value) return
@@ -46,7 +46,14 @@ const filtered = computed(() => {
 })
 
 function toggle(id) {
-  expanded.value = expanded.value === id ? '' : id
+  const next = new Set(expanded.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expanded.value = next
+}
+
+function isExpanded(id) {
+  return expanded.value.has(id)
 }
 
 onMounted(load)
@@ -102,11 +109,11 @@ onMounted(load)
             <tr class="row" @click="toggle(item._id)">
               <td class="name">{{ item.name || '-' }}</td>
               <td class="code">{{ item.code || item.secucode || '-' }}</td>
-              <td>{{ item.market_name || item.market || '-' }}</td>
+              <td class="market">{{ item.market_name || item.market || '-' }}</td>
               <td>
                 <span class="tag">严重异常波动</span>
               </td>
-              <td>{{ item.notice_date || '-' }}</td>
+              <td class="date">{{ item.notice_date || '-' }}</td>
               <td class="range">
                 {{ item.monitor_start_date || '-' }}
                 ~
@@ -118,7 +125,7 @@ onMounted(load)
                 </span>
               </td>
             </tr>
-            <tr v-if="expanded === item._id" class="detail-row">
+            <tr v-if="isExpanded(item._id)" class="detail-row">
               <td colspan="7">
                 <div class="detail">
                   <p>
@@ -161,17 +168,19 @@ table {
 
 th,
 td {
-  padding: 12px 10px;
+  padding: 13px 12px;
   text-align: left;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(132, 150, 168, 0.28);
   vertical-align: middle;
-  font-size: 0.92rem;
+  font-size: 0.94rem;
+  color: #eef3f8;
 }
 
 th {
-  color: var(--muted);
-  font-weight: 600;
+  color: #c8d5e4;
+  font-weight: 650;
   white-space: nowrap;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .row {
@@ -179,70 +188,86 @@ th {
   transition: background 0.12s ease;
 }
 
+.row:nth-child(4n + 1) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
 .row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .name {
-  font-weight: 650;
+  color: #ffffff;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 .code {
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: #8ec5ff;
+  font-weight: 600;
 }
 
+.market {
+  color: #dce6f0;
+}
+
+.date,
 .range {
   white-space: nowrap;
-  color: var(--muted);
-  font-size: 0.88rem;
+  color: #c3d0de;
+  font-variant-numeric: tabular-nums;
 }
 
 .tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
-  background: var(--up-soft);
-  color: var(--up);
+  background: rgba(255, 92, 82, 0.18);
+  color: #ff8b82;
+  border: 1px solid rgba(255, 120, 110, 0.35);
   font-size: 0.82rem;
+  font-weight: 650;
   white-space: nowrap;
 }
 
 .remain {
-  font-weight: 650;
+  color: #f0c56d;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
 }
 
 .remain.urgent {
-  color: var(--up);
+  color: #ff7a6e;
 }
 
 .detail-row td {
-  background: rgba(0, 0, 0, 0.16);
+  background: rgba(20, 28, 38, 0.92);
   padding: 0;
+  border-bottom: 1px solid rgba(132, 150, 168, 0.28);
 }
 
 .detail {
-  padding: 14px 14px 16px;
+  padding: 16px 14px 18px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .detail p {
   margin: 0;
-  color: var(--text);
-  line-height: 1.55;
-  font-size: 0.9rem;
+  color: #e8eef4;
+  line-height: 1.6;
+  font-size: 0.92rem;
 }
 
 .detail strong {
-  color: var(--muted);
-  font-weight: 600;
+  color: #9ec5e8;
+  font-weight: 650;
 }
 
 .empty {
   text-align: center;
-  color: var(--muted);
+  color: #b7c4d2;
   padding: 28px 10px;
 }
 </style>

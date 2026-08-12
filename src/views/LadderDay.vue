@@ -186,7 +186,7 @@ onMounted(load)
           />
         </div>
 
-        <div v-if="!filteredBoards.length" class="panel empty">没有匹配的股票</div>
+        <div v-if="!filteredBoards.length" class="panel empty">没有匹配的</div>
 
         <div v-for="board in filteredBoards" :key="board.level" class="panel ladder-level">
           <div class="level-head">

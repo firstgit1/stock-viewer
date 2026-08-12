@@ -82,6 +82,29 @@ export function parseMinuteTrends(trends = []) {
     .filter(Boolean)
 }
 
+/** A股分时：09:30-11:30 + 13:00-15:00（午休在轴上紧挨，共 242 个分钟点） */
+const MINUTE_MORNING_START = 9 * 60 + 30
+const MINUTE_MORNING_END = 11 * 60 + 30
+const MINUTE_AFTERNOON_START = 13 * 60
+const MINUTE_AFTERNOON_END = 15 * 60
+export const MINUTE_MORNING_LEN = MINUTE_MORNING_END - MINUTE_MORNING_START + 1 // 121
+export const MINUTE_AFTERNOON_LEN = MINUTE_AFTERNOON_END - MINUTE_AFTERNOON_START + 1 // 121
+export const MINUTE_TOTAL_SLOTS = MINUTE_MORNING_LEN + MINUTE_AFTERNOON_LEN // 242
+
+/** @param {string} timeStr 如 2026-08-12 10:35 或 10:35 */
+export function minuteTimeToSlot(timeStr) {
+  const m = String(timeStr || '').match(/(\d{1,2}):(\d{2})/)
+  if (!m) return -1
+  const mins = Number(m[1]) * 60 + Number(m[2])
+  if (mins >= MINUTE_MORNING_START && mins <= MINUTE_MORNING_END) {
+    return mins - MINUTE_MORNING_START
+  }
+  if (mins >= MINUTE_AFTERNOON_START && mins <= MINUTE_AFTERNOON_END) {
+    return MINUTE_MORNING_LEN + (mins - MINUTE_AFTERNOON_START)
+  }
+  return -1
+}
+
 export function pickRealtimeQuote(map, ...keys) {
   if (!map || typeof map !== 'object') return null
   for (const key of keys) {

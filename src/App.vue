@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { clearCachedUser, fetchMe, getCachedUser, logout } from './api/auth'
+import ToastHost from './components/ToastHost.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,6 +56,7 @@ async function onLogout() {
       </div>
     </header>
     <RouterView />
+    <ToastHost />
   </div>
 </template>
 

@@ -97,8 +97,8 @@ function closeDetail() {
   <div class="page">
     <div class="page-head">
       <div>
-        <h1>股票搜索</h1>
-        <p>搜索后点击股票，弹出详情：实时行情 + 分时图</p>
+        <h1>搜索</h1>
+        <p>搜索后点击，弹出详情：实时行情 + 分时图</p>
       </div>
       <form class="toolbar" @submit.prevent="search">
         <input v-model="query" type="search" placeholder="例如：中恒、600519、贵州茅台" />
