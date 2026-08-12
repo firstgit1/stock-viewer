@@ -33,7 +33,14 @@ const router = createRouter({
       name: 'search',
       component: FeatureGate,
       props: { feature: 'search' },
-      meta: { title: '股票搜索', feature: 'search' },
+      meta: { title: '搜索', feature: 'search' },
+    },
+    {
+      path: '/severe-abnormal',
+      name: 'severeAbnormal',
+      component: FeatureGate,
+      props: { feature: 'severeAbnormal' },
+      meta: { title: '严重异动', feature: 'severeAbnormal' },
     },
     {
       path: '/admin',
@@ -69,7 +76,7 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || '股票数据'} · 数据看板`
+  document.title = `${to.meta.title || '数据'} · 数据看板`
 })
 
 export default router

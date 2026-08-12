@@ -15,7 +15,7 @@ export async function searchStockBasic(query, limit = 20) {
  */
 export async function fetchStockMinuteBatch(codes) {
   const list = (codes || []).map((c) => String(c || '').trim()).filter(Boolean)
-  if (!list.length) throw new Error('请提供股票代码列表')
+  if (!list.length) throw new Error('请提供代码列表')
 
   const res = await fetch(`${BASE}/tushare/stock-minute-batch`, {
     method: 'POST',
@@ -34,7 +34,7 @@ export async function fetchStockMinuteBatch(codes) {
  */
 export async function fetchRealtimeStocks(codes) {
   const list = (codes || []).map((c) => String(c || '').trim()).filter(Boolean)
-  if (!list.length) throw new Error('请提供股票代码')
+  if (!list.length) throw new Error('请提供代码')
   const url = `${BASE}/realtime-stocks?codes=${encodeURIComponent(list.join(','))}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -116,7 +116,7 @@ export async function fetchDailyKline(tsCodeOrSymbol, limitOrOpts = 60) {
   const limit = opts.limit ?? 60
   const end = opts.end || '20500101'
   const secid = toEastmoneySecid(tsCodeOrSymbol)
-  if (!secid) throw new Error('无法识别股票代码')
+  if (!secid) throw new Error('无法识别代码')
   const params = new URLSearchParams({
     secid,
     fields1: 'f1,f2,f3,f4,f5,f6',
@@ -198,6 +198,22 @@ export async function fetchCailianTelegraph(count = 100) {
     throw new Error('电报接口返回失败')
   }
   return Array.isArray(json.data) ? json.data : []
+}
+
+/**
+ * 交易所监控池
+ * @param {'severe_abnormal'|'risk_warning'|string} type
+ */
+export async function fetchExchangeMonitorList(type = 'severe_abnormal') {
+  const url = `${BASE}/ladder/exchange-monitor/list?type=${encodeURIComponent(type)}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const json = await res.json()
+  if (!json.success) throw new Error(json.message || '监控池接口返回失败')
+  return {
+    list: Array.isArray(json.data) ? json.data : [],
+    stats: json.stats || null,
+  }
 }
 
 /** Unix 秒时间戳 → HH:mm 或 MM-DD HH:mm */

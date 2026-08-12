@@ -5,6 +5,7 @@ import { fetchMe } from '../api/auth'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures } from '../api/features'
 import LadderDay from '../views/LadderDay.vue'
+import SevereAbnormal from '../views/SevereAbnormal.vue'
 import StockSearch from '../views/StockSearch.vue'
 import Telegraph from '../views/Telegraph.vue'
 import UpgradeNotice from './UpgradeNotice.vue'
@@ -22,6 +23,7 @@ const viewMap = {
   ladder: LadderDay,
   telegraph: Telegraph,
   search: StockSearch,
+  severeAbnormal: SevereAbnormal,
 }
 
 const view = computed(() => viewMap[props.feature] || null)
