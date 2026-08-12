@@ -42,6 +42,13 @@ function formatTime(iso) {
   return String(iso).slice(0, 19).replace('T', ' ')
 }
 
+function lastPushCount(user) {
+  const n = user?.lastResult?.pushed
+  if (n === 0 || n === '0') return '0'
+  if (n == null || n === '') return '—'
+  return String(n)
+}
+
 async function loadFeatures() {
   loading.value = true
   loadError.value = ''
@@ -252,7 +259,7 @@ onMounted(() => {
 
       <p v-if="pushLoading" class="status">推送用户加载中…</p>
 
-      <div v-else class="table-wrap" :class="{ dim: pushBusy }">
+      <div v-else class="push-table" :class="{ dim: pushBusy }">
         <table class="user-table">
           <thead>
             <tr>
@@ -260,12 +267,13 @@ onMounted(() => {
               <th>Token</th>
               <th>状态</th>
               <th>上次推送</th>
+              <th>推送条数</th>
               <th class="ops">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!pushUsers.length">
-              <td colspan="5" class="empty">暂无用户，可点击「添加用户」或等新账号注册后刷新。</td>
+              <td colspan="6" class="empty">暂无用户，可点击「添加用户」或等新账号注册后刷新。</td>
             </tr>
             <tr v-for="user in pushUsers" :key="user.username">
               <td class="name">{{ user.username }}</td>
@@ -274,6 +282,7 @@ onMounted(() => {
                 <span class="badge" :class="statusClass(user)">{{ statusText(user) }}</span>
               </td>
               <td class="time">{{ formatTime(user.lastRunAt) }}</td>
+              <td class="count">{{ lastPushCount(user) }}</td>
               <td class="ops">
                 <button type="button" class="link" :disabled="pushBusy" @click="openConfig(user)">
                   配置 Token
@@ -411,8 +420,13 @@ onMounted(() => {
 }
 
 .ghost {
-  border: 1px solid var(--line);
-  background: rgba(27, 36, 48, 0.72);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 4px;
+}
+
+.ghost:hover:not(:disabled) {
   color: var(--text);
 }
 
@@ -423,14 +437,11 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(27, 36, 48, 0.72);
+.push-table {
+  width: 100%;
 }
 
-.table-wrap.dim,
+.push-table.dim,
 .switch-list.dim {
   opacity: 0.55;
   pointer-events: none;
@@ -439,12 +450,11 @@ onMounted(() => {
 .user-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 640px;
 }
 
 .user-table th,
 .user-table td {
-  padding: 12px 14px;
+  padding: 12px 10px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   vertical-align: middle;
@@ -454,7 +464,6 @@ onMounted(() => {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 600;
-  background: rgba(10, 14, 20, 0.35);
 }
 
 .user-table tbody tr:last-child td {
@@ -471,7 +480,8 @@ onMounted(() => {
   color: var(--muted);
 }
 
-.time {
+.time,
+.count {
   font-size: 0.86rem;
   color: var(--muted);
   white-space: nowrap;
