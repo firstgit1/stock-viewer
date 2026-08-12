@@ -555,6 +555,35 @@ onMounted(load)
   color: var(--muted);
 }
 
+@media (max-width: 768px) {
+  .page-head .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .search-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100% !important;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-btn {
+    flex: 0 0 auto;
+  }
+
+  .count-field,
+  .filter {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
 @media (max-width: 560px) {
   .item {
     grid-template-columns: 1fr;

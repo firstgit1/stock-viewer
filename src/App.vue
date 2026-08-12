@@ -209,14 +209,12 @@ nav a.router-link-active {
 @media (max-width: 768px) {
   .topbar {
     grid-template-columns: 1fr;
-    gap: 10px;
-    padding: 12px 12px 10px;
+    gap: 8px;
+    padding: 8px 10px;
   }
 
   .brand {
-    order: -1;
-    justify-self: center;
-    font-size: 0.98rem;
+    display: none;
   }
 
   nav {
@@ -234,13 +232,21 @@ nav a.router-link-active {
 
   nav a {
     flex: 0 0 auto;
-    padding: 8px 10px;
-    font-size: 0.88rem;
+    padding: 7px 9px;
+    font-size: 0.84rem;
   }
 
   .userbox {
     justify-self: stretch;
     justify-content: space-between;
+  }
+
+  .user {
+    max-width: 96px;
+  }
+
+  .user .role {
+    display: none;
   }
 }
 </style>

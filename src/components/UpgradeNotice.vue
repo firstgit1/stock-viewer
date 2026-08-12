@@ -42,4 +42,15 @@ p:last-child {
   margin: 0;
   color: var(--muted);
 }
+
+@media (max-width: 768px) {
+  .upgrade {
+    margin-top: 24px;
+    padding: 28px 16px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+}
 </style>

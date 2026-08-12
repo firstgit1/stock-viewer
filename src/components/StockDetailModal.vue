@@ -1285,12 +1285,14 @@ svg.dragging {
   }
 
   .legend {
-    left: 16px;
-    bottom: 78px;
+    position: static;
+    margin: 8px 12px 0;
+    left: auto;
+    bottom: auto;
     flex-wrap: wrap;
     gap: 8px;
     font-size: 0.74rem;
-    max-width: calc(100% - 32px);
+    max-width: none;
   }
 
   .extra {

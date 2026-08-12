@@ -407,6 +407,11 @@ th {
 }
 
 @media (max-width: 768px) {
+  .status {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
   .desktop-only {
     display: none;
   }

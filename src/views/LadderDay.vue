@@ -450,6 +450,37 @@ onMounted(load)
   }
 }
 
+@media (max-width: 768px) {
+  .page-head .toolbar {
+    width: 100%;
+  }
+
+  .page-head .toolbar input[type='date'] {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .page-head .toolbar .ghost,
+  .page-head .toolbar button[type='submit'] {
+    flex: 1;
+    min-height: 42px;
+  }
+
+  .block-head.inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter {
+    width: 100%;
+  }
+
+  .meta-row {
+    gap: 6px 10px;
+    font-size: 0.8rem;
+  }
+}
+
 @media (max-width: 560px) {
   .stats,
   .promo-grid,

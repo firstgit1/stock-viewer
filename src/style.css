@@ -220,4 +220,12 @@ code {
     padding: 10px 8px;
     font-size: 0.84rem;
   }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: grid !important;
+  }
 }

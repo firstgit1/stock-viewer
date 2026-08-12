@@ -375,7 +375,7 @@ onMounted(() => {
     <p v-if="pushLoading" class="status">推送用户加载中…</p>
 
     <section v-else class="panel push-panel">
-      <div class="push-table" :class="{ dim: pushBusy }">
+      <div class="push-table desktop-only" :class="{ dim: pushBusy }">
         <table class="user-table">
           <thead>
             <tr>
@@ -412,6 +412,32 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="push-cards mobile-only" :class="{ dim: pushBusy }">
+        <p v-if="!pushUsers.length" class="empty-card">暂无用户，可点击「添加用户」或等新账号注册后刷新。</p>
+        <article v-for="user in pushUsers" :key="`m-${user.username}`" class="push-card">
+          <div class="card-top">
+            <div>
+              <h3 class="name">{{ user.username }}</h3>
+              <p class="mono">{{ user.hasToken ? user.tokenMasked : '未配置 Token' }}</p>
+            </div>
+            <span class="badge" :class="statusClass(user)">{{ statusText(user) }}</span>
+          </div>
+          <div class="card-meta">
+            <span>规则 {{ ruleText(user) }}</span>
+            <span>上次 {{ formatTime(user.lastRunAt) }}</span>
+            <span>条数 {{ lastPushCount(user) }}</span>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="ghost-btn" :disabled="pushBusy" @click="openConfig(user)">
+              配置
+            </button>
+            <button type="button" class="ghost-btn" :disabled="pushBusy" @click="toggleEnabled(user)">
+              {{ user.enabled ? '关闭' : '开启' }}
+            </button>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -568,7 +594,15 @@ onMounted(() => {
 }
 
 .push-panel {
-  overflow: hidden;
+  overflow: visible;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
 }
 
 .toolbar {
@@ -585,7 +619,8 @@ onMounted(() => {
 }
 
 .primary,
-.ghost {
+.ghost,
+.ghost-btn {
   border-radius: 10px;
   padding: 8px 14px;
   font-size: 0.92rem;
@@ -608,8 +643,17 @@ onMounted(() => {
   color: var(--text);
 }
 
+.ghost-btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  min-height: 40px;
+  flex: 1;
+}
+
 .primary:disabled,
 .ghost:disabled,
+.ghost-btn:disabled,
 .link:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -617,12 +661,67 @@ onMounted(() => {
 
 .push-table {
   width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .push-table.dim,
+.push-cards.dim,
 .switch-list.dim {
   opacity: 0.55;
   pointer-events: none;
+}
+
+.push-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.push-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(22, 29, 39, 0.9);
+  padding: 14px;
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-top h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.card-top .mono {
+  margin: 0;
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.empty-card {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
 }
 
 .user-table {
@@ -944,6 +1043,50 @@ onMounted(() => {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: grid !important;
+  }
+
+  .toolbar > .primary,
+  .toolbar > .ghost {
+    flex: 1 1 calc(50% - 10px);
+    min-height: 42px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
+  }
+
+  .toolbar > .primary {
+    border-color: rgba(57, 166, 117, 0.8);
+    background: rgba(47, 143, 102, 0.9);
+  }
+
+  .announce-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .announce-actions .primary {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .modal {
+    width: min(440px, 100%);
+    max-height: min(90dvh, 100%);
+    overflow-y: auto;
+  }
+
+  .modal-head h3 {
+    word-break: break-word;
   }
 }
 
