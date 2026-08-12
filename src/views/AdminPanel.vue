@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
 import { fetchPushUsers, runPushNow, saveUserPush, testUserPush } from '../api/push'
@@ -13,9 +13,34 @@ const loadError = ref('')
 const pushUsers = ref([])
 const pushLoading = ref(true)
 const pushBusy = ref(false)
-const draftTokens = ref({})
-const newUsername = ref('')
-const newToken = ref('')
+
+const modalOpen = ref(false)
+const modalMode = ref('edit') // edit | add
+const modalUser = ref(null)
+const modalToken = ref('')
+const modalEnabled = ref(true)
+const modalUsername = ref('')
+
+const modalTitle = computed(() =>
+  modalMode.value === 'add' ? '添加推送用户' : `配置 Token · ${modalUser.value?.username || ''}`,
+)
+
+function statusText(user) {
+  if (user.enabled && user.hasToken) return '可推送'
+  if (user.hasToken) return '已关闭'
+  return '未配置'
+}
+
+function statusClass(user) {
+  if (user.enabled && user.hasToken) return 'ok'
+  if (user.hasToken) return 'off'
+  return 'empty'
+}
+
+function formatTime(iso) {
+  if (!iso) return '—'
+  return String(iso).slice(0, 19).replace('T', ' ')
+}
 
 async function loadFeatures() {
   loading.value = true
@@ -34,9 +59,6 @@ async function loadPush() {
   pushLoading.value = true
   try {
     pushUsers.value = await fetchPushUsers()
-    const drafts = {}
-    for (const u of pushUsers.value) drafts[u.username] = ''
-    draftTokens.value = drafts
   } catch (e) {
     toast.error(e?.message || '加载推送用户失败')
   } finally {
@@ -76,20 +98,56 @@ function upsertLocalUser(user) {
   pushUsers.value.sort((a, b) => a.username.localeCompare(b.username, 'zh'))
 }
 
-async function saveRow(user) {
+function openConfig(user) {
+  modalMode.value = 'edit'
+  modalUser.value = user
+  modalUsername.value = user.username
+  modalToken.value = ''
+  modalEnabled.value = Boolean(user.enabled)
+  modalOpen.value = true
+}
+
+function openAdd() {
+  modalMode.value = 'add'
+  modalUser.value = null
+  modalUsername.value = ''
+  modalToken.value = ''
+  modalEnabled.value = true
+  modalOpen.value = true
+}
+
+function closeModal() {
+  modalOpen.value = false
+  modalUser.value = null
+  modalToken.value = ''
+  modalUsername.value = ''
+}
+
+async function saveModal() {
   if (pushBusy.value) return
+  const username =
+    modalMode.value === 'add' ? modalUsername.value.trim() : modalUser.value?.username
+  if (!username) {
+    toast.error('请填写用户名')
+    return
+  }
+  const token = modalToken.value.trim()
+  if (modalMode.value === 'add' && !token) {
+    toast.error('请填写 Token')
+    return
+  }
+
   pushBusy.value = true
   try {
     const payload = {
-      username: user.username,
-      enabled: user.enabled,
+      username,
+      enabled: modalEnabled.value,
     }
-    const token = String(draftTokens.value[user.username] || '').trim()
     if (token) payload.token = token
     const saved = await saveUserPush(payload)
     upsertLocalUser(saved)
-    draftTokens.value[user.username] = ''
-    toast.success(`已保存 ${user.username}`)
+    toast.success(`已保存 ${saved.username}`)
+    closeModal()
   } catch (e) {
     toast.error(e?.message || '保存失败')
   } finally {
@@ -97,28 +155,23 @@ async function saveRow(user) {
   }
 }
 
-async function addUser() {
-  const username = newUsername.value.trim()
-  const token = newToken.value.trim()
-  if (!username) {
-    toast.error('请填写用户名')
+async function toggleEnabled(user) {
+  if (pushBusy.value) return
+  if (!user.hasToken && !user.enabled) {
+    openConfig(user)
+    toast.info('请先配置 Token')
     return
   }
-  if (pushBusy.value) return
   pushBusy.value = true
   try {
     const saved = await saveUserPush({
-      username,
-      token: token || undefined,
-      enabled: Boolean(token),
+      username: user.username,
+      enabled: !user.enabled,
     })
     upsertLocalUser(saved)
-    draftTokens.value[saved.username] = ''
-    newUsername.value = ''
-    newToken.value = ''
-    toast.success(`已添加 ${saved.username}`)
+    toast.success(saved.enabled ? `已开启 ${saved.username}` : `已关闭 ${saved.username}`)
   } catch (e) {
-    toast.error(e?.message || '添加失败')
+    toast.error(e?.message || '操作失败')
   } finally {
     pushBusy.value = false
   }
@@ -126,12 +179,14 @@ async function addUser() {
 
 async function onTest(user) {
   if (pushBusy.value) return
+  if (!user.hasToken) {
+    openConfig(user)
+    toast.info('请先配置 Token')
+    return
+  }
   pushBusy.value = true
   try {
-    const payload = { username: user.username }
-    const token = String(draftTokens.value[user.username] || '').trim()
-    if (token) payload.token = token
-    const data = await testUserPush(payload)
+    const data = await testUserPush({ username: user.username })
     toast.success(data.message || '测试已发送')
   } catch (e) {
     toast.error(e?.message || '测试失败')
@@ -182,71 +237,63 @@ onMounted(() => {
     </p>
 
     <h2 class="section-title">微信推送</h2>
-    <section class="panel push-panel">
+    <section class="panel">
       <p class="hint">
-        让用户在
+        用户在
         <a href="https://www.pushplus.plus" target="_blank" rel="noreferrer">pushplus.plus</a>
-        注册并拿到 Token，由你填写到下方。开启后点「立即推送」会把新电报发给所有已开启用户；以后可再改成自动推送。
+        获取 Token 后，由你在列表中配置。点「立即推送」会发给所有「可推送」用户。
       </p>
 
-      <div class="push-actions">
+      <div class="toolbar">
         <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
           立即推送
         </button>
         <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="loadPush">
           刷新列表
         </button>
+        <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="openAdd">
+          添加用户
+        </button>
       </div>
 
       <p v-if="pushLoading" class="status">推送用户加载中…</p>
 
-      <div v-else class="user-list" :class="{ dim: pushBusy }">
-        <div v-for="user in pushUsers" :key="user.username" class="user-row">
-          <div class="user-main">
-            <strong>{{ user.username }}</strong>
-            <span class="badge" :class="{ on: user.enabled && user.hasToken }">
-              {{ user.enabled && user.hasToken ? '可推送' : user.hasToken ? '已关' : '未配置' }}
-            </span>
-          </div>
-          <p class="token-meta">
-            Token：{{ user.hasToken ? user.tokenMasked : '尚未填写' }}
-            <template v-if="user.lastRunAt"> · 上次 {{ user.lastRunAt.slice(0, 19).replace('T', ' ') }}</template>
-          </p>
-          <label class="field">
-            <span>更新 Token</span>
-            <input
-              v-model="draftTokens[user.username]"
-              type="text"
-              autocomplete="off"
-              placeholder="留空表示不改"
-            />
-          </label>
-          <div class="row-actions">
-            <label class="check">
-              <input v-model="user.enabled" type="checkbox" />
-              开启推送
-            </label>
-            <button type="button" class="ghost" :disabled="pushBusy" @click="saveRow(user)">保存</button>
-            <button type="button" class="ghost" :disabled="pushBusy" @click="onTest(user)">测试</button>
-          </div>
-        </div>
-
-        <div class="user-row add-row">
-          <strong>添加用户推送</strong>
-          <div class="add-grid">
-            <label class="field">
-              <span>用户名</span>
-              <input v-model="newUsername" type="text" placeholder="如 ceshi123" autocomplete="off" />
-            </label>
-            <label class="field">
-              <span>PushPlus Token</span>
-              <input v-model="newToken" type="text" placeholder="用户提供的 Token" autocomplete="off" />
-            </label>
-          </div>
-          <div class="row-actions">
-            <button type="button" class="primary" :disabled="pushBusy" @click="addUser">添加并保存</button>
-          </div>
-        </div>
+      <div v-else class="table-wrap" :class="{ dim: pushBusy }">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>Token</th>
+              <th>状态</th>
+              <th>上次推送</th>
+              <th class="ops">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!pushUsers.length">
+              <td colspan="5" class="empty">暂无用户，可点击「添加用户」或等新账号注册后刷新。</td>
+            </tr>
+            <tr v-for="user in pushUsers" :key="user.username">
+              <td class="name">{{ user.username }}</td>
+              <td class="mono">{{ user.hasToken ? user.tokenMasked : '—' }}</td>
+              <td>
+                <span class="badge" :class="statusClass(user)">{{ statusText(user) }}</span>
+              </td>
+              <td class="time">{{ formatTime(user.lastRunAt) }}</td>
+              <td class="ops">
+                <button type="button" class="link" :disabled="pushBusy" @click="openConfig(user)">
+                  配置 Token
+                </button>
+                <button type="button" class="link" :disabled="pushBusy" @click="toggleEnabled(user)">
+                  {{ user.enabled ? '关闭' : '开启' }}
+                </button>
+                <button type="button" class="link" :disabled="pushBusy" @click="onTest(user)">
+                  测试
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -283,6 +330,41 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
+    <div v-if="modalOpen" class="modal-mask" @click.self="closeModal">
+      <div class="modal" role="dialog" aria-modal="true" :aria-label="modalTitle">
+        <div class="modal-head">
+          <h3>{{ modalTitle }}</h3>
+          <button type="button" class="icon-close" aria-label="关闭" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <label v-if="modalMode === 'add'" class="field">
+            <span>用户名</span>
+            <input v-model="modalUsername" type="text" placeholder="如 ceshi123" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>{{ modalMode === 'add' ? 'PushPlus Token' : '新 Token（留空则不修改）' }}</span>
+            <input
+              v-model="modalToken"
+              type="text"
+              autocomplete="off"
+              :placeholder="modalMode === 'add' ? '用户提供的 Token' : '粘贴新 Token'"
+            />
+          </label>
+          <p v-if="modalMode === 'edit' && modalUser?.hasToken" class="token-hint">
+            当前 Token：{{ modalUser.tokenMasked }}
+          </p>
+          <label class="check">
+            <input v-model="modalEnabled" type="checkbox" />
+            开启推送
+          </label>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="ghost" :disabled="pushBusy" @click="closeModal">取消</button>
+          <button type="button" class="primary" :disabled="pushBusy" @click="saveModal">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -319,7 +401,7 @@ onMounted(() => {
   color: #7ed7f2;
 }
 
-.push-actions {
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -327,11 +409,16 @@ onMounted(() => {
 }
 
 .primary,
+.ghost,
+.link {
+  cursor: pointer;
+}
+
+.primary,
 .ghost {
   border-radius: 10px;
   padding: 8px 14px;
   font-size: 0.92rem;
-  cursor: pointer;
 }
 
 .primary {
@@ -347,38 +434,92 @@ onMounted(() => {
 }
 
 .primary:disabled,
-.ghost:disabled {
+.ghost:disabled,
+.link:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.user-list {
-  display: grid;
-  gap: 12px;
-}
-
-.user-list.dim,
-.switch-list.dim {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.user-row {
-  display: grid;
-  gap: 10px;
-  padding: 16px 18px;
+.table-wrap {
+  overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(27, 36, 48, 0.72);
 }
 
-.user-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.table-wrap.dim,
+.switch-list.dim {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.user-table th,
+.user-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.user-table th {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(10, 14, 20, 0.35);
+}
+
+.user-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.time {
+  font-size: 0.86rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ops {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.ops .link {
+  margin-left: 10px;
+  border: none;
+  background: none;
+  color: #7ed7f2;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.ops .link:first-child {
+  margin-left: 0;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 14px !important;
 }
 
 .badge {
+  display: inline-block;
   font-size: 0.78rem;
   padding: 2px 8px;
   border-radius: 999px;
@@ -386,16 +527,19 @@ onMounted(() => {
   color: var(--muted);
 }
 
-.badge.on {
+.badge.ok {
   color: #9be7c0;
   border-color: rgba(57, 166, 117, 0.65);
   background: rgba(47, 143, 102, 0.18);
 }
 
-.token-meta {
-  margin: 0;
+.badge.off {
+  color: #f0c674;
+  border-color: rgba(240, 198, 116, 0.4);
+}
+
+.badge.empty {
   color: var(--muted);
-  font-size: 0.86rem;
 }
 
 .field {
@@ -414,13 +558,6 @@ onMounted(() => {
   padding: 9px 12px;
 }
 
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
 .check {
   display: inline-flex;
   align-items: center;
@@ -429,10 +566,67 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
-.add-grid {
+.token-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr 1.4fr;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 10, 16, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  width: min(440px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #1b2430;
+  box-shadow: var(--shadow);
+}
+
+.modal-head,
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.modal-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.icon-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.modal-foot {
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .switch-list {
@@ -558,10 +752,6 @@ onMounted(() => {
 
   .control {
     justify-content: space-between;
-  }
-
-  .add-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>
