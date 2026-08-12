@@ -13,6 +13,22 @@ const loadError = ref('')
 const pushUsers = ref([])
 const pushLoading = ref(true)
 const pushBusy = ref(false)
+const pushDiagnostics = ref(null)
+const pushEnabledCount = ref(0)
+const pushWithTokenCount = ref(0)
+
+const pushStorageWarning = computed(() => {
+  const d = pushDiagnostics.value
+  if (!d) return ''
+  if (!d.redisConfigured) return '未检测到 Upstash Redis，推送配置无法持久化。'
+  if ((d.mapSize ?? 0) === 0 && pushWithTokenCount.value === 0) {
+    return '服务器 Redis 中没有任何 PushPlus Token（mapSize=0）。请重新打开「配置」粘贴 Token 并开启，保存成功后再点「立即推送」。'
+  }
+  if (pushEnabledCount.value === 0) {
+    return '已有 Token 的用户数为 0 或均未开启，定时任务不会发微信。'
+  }
+  return ''
+})
 
 const modalOpen = ref(false)
 const modalMode = ref('edit') // edit | add
@@ -77,7 +93,11 @@ async function loadFeatures() {
 async function loadPush() {
   pushLoading.value = true
   try {
-    pushUsers.value = await fetchPushUsers()
+    const data = await fetchPushUsers()
+    pushUsers.value = data.users || []
+    pushDiagnostics.value = data.diagnostics || null
+    pushWithTokenCount.value = data.withTokenCount ?? 0
+    pushEnabledCount.value = data.enabledCount ?? 0
   } catch (e) {
     toast.error(e?.message || '加载推送用户失败')
   } finally {
@@ -175,7 +195,8 @@ async function saveModal() {
       keywords: modalKeywords.value,
     }
     if (token) payload.token = token
-    const saved = await saveUserPush(payload)
+    const { user: saved, diagnostics } = await saveUserPush(payload)
+    if (diagnostics) pushDiagnostics.value = diagnostics
     closeModal()
     await loadPush()
     const stillThere = pushUsers.value.some(
@@ -202,12 +223,13 @@ async function toggleEnabled(user) {
   }
   pushBusy.value = true
   try {
-    const saved = await saveUserPush({
+    const { user: saved } = await saveUserPush({
       username: user.username,
       enabled: !user.enabled,
     })
     upsertLocalUser(saved)
     toast.success(saved.enabled ? `已开启 ${saved.username}` : `已关闭 ${saved.username}`)
+    await loadPush()
   } catch (e) {
     toast.error(e?.message || '操作失败')
   } finally {
@@ -257,6 +279,7 @@ onMounted(() => {
     </p>
 
     <h2 class="section-title">微信推送</h2>
+    <p v-if="pushStorageWarning" class="status error">{{ pushStorageWarning }}</p>
     <div class="toolbar">
       <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
         立即推送

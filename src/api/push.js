@@ -1,11 +1,16 @@
 export async function fetchPushUsers() {
-  const res = await fetch('/api/push/config', {
+  const res = await fetch(`/api/push/config?t=${Date.now()}`, {
     credentials: 'include',
     cache: 'no-store',
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '加载推送配置失败')
-  return data.users || []
+  return {
+    users: data.users || [],
+    diagnostics: data.diagnostics || null,
+    withTokenCount: data.withTokenCount ?? 0,
+    enabledCount: data.enabledCount ?? 0,
+  }
 }
 
 export async function saveUserPush(payload) {
@@ -18,7 +23,7 @@ export async function saveUserPush(payload) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '保存失败')
-  return data.user
+  return { user: data.user, diagnostics: data.diagnostics || null }
 }
 
 export async function testUserPush(payload = {}) {
