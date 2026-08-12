@@ -20,8 +20,8 @@ async function load() {
   }
   try {
     const data = await fetchAnnouncement({ force: true })
-    enabled.value = Boolean(data.enabled)
-    text.value = String(data.text || '').trim()
+    enabled.value = Boolean(data.announcement?.enabled)
+    text.value = String(data.announcement?.text || '').trim()
   } catch {
     enabled.value = false
     text.value = ''

@@ -15,6 +15,17 @@ const announceEnabled = ref(false)
 const announceText = ref('')
 const announceSaving = ref(false)
 const announceLoading = ref(true)
+const announceStorage = ref('none')
+
+const announceStorageWarning = computed(() => {
+  if (announceStorage.value === 'local') {
+    return '当前公告只保存在本机，不会出现在正式站。请到 https://stock-viewer-kappa.vercel.app 管理后台重新填写并保存。'
+  }
+  if (announceStorage.value === 'none') {
+    return '未检测到可用存储，公告无法持久化。'
+  }
+  return ''
+})
 
 const pushUsers = ref([])
 const pushLoading = ref(true)
@@ -102,8 +113,9 @@ async function loadAnnounce() {
   announceLoading.value = true
   try {
     const data = await fetchAnnouncement({ force: true })
-    announceEnabled.value = Boolean(data.enabled)
-    announceText.value = String(data.text || '')
+    announceEnabled.value = Boolean(data.announcement?.enabled)
+    announceText.value = String(data.announcement?.text || '')
+    announceStorage.value = data.storage || 'none'
   } catch (e) {
     toast.error(e?.message || '加载公告失败')
   } finally {
@@ -123,9 +135,14 @@ async function saveAnnounce() {
       enabled: announceEnabled.value,
       text: announceText.value,
     })
-    announceEnabled.value = Boolean(data.enabled)
-    announceText.value = String(data.text || '')
-    toast.success(data.enabled ? '公告已开启' : '公告已保存')
+    announceEnabled.value = Boolean(data.announcement?.enabled)
+    announceText.value = String(data.announcement?.text || '')
+    announceStorage.value = data.storage || 'none'
+    if (data.storage === 'local') {
+      toast.info('已保存到本机（未同步线上），正式站需再到线上后台保存一次')
+    } else {
+      toast.success(data.announcement?.enabled ? '公告已开启' : '公告已保存')
+    }
   } catch (e) {
     toast.error(e?.message || '保存公告失败')
   } finally {
@@ -399,6 +416,7 @@ onMounted(() => {
     </section>
 
     <h2 class="section-title">站点公告</h2>
+    <p v-if="announceStorageWarning" class="status error">{{ announceStorageWarning }}</p>
     <section class="panel announce-panel" :class="{ dim: announceLoading || announceSaving }">
       <p class="muted announce-hint">登录后页面顶部小喇叭滚动展示；关闭或清空后不显示。</p>
       <div class="announce-form">

@@ -5,7 +5,10 @@ export async function fetchAnnouncement({ force = false } = {}) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '加载公告失败')
-  return data.announcement || { enabled: false, text: '' }
+  return {
+    announcement: data.announcement || { enabled: false, text: '' },
+    storage: data.storage || 'none',
+  }
 }
 
 export async function updateAnnouncement(payload) {
@@ -18,5 +21,8 @@ export async function updateAnnouncement(payload) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '保存公告失败')
-  return data.announcement
+  return {
+    announcement: data.announcement,
+    storage: data.storage || 'none',
+  }
 }
