@@ -20,7 +20,9 @@ const pushWithTokenCount = ref(0)
 const pushStorageWarning = computed(() => {
   const d = pushDiagnostics.value
   if (!d) return ''
-  if (!d.redisConfigured) return '未检测到 Upstash Redis，推送配置无法持久化。'
+  if (!d.redisConfigured) {
+    return '当前环境未配置 Upstash Redis（多半是本地开发）。这里保存的 Token 不会进线上，cron-job.org 也推不到微信。请打开正式站 https://stock-viewer-kappa.vercel.app 管理后台重新配置；本地调试请在项目根目录建 .env 并填入与 Vercel 相同的 UPSTASH_REDIS_REST_URL / TOKEN。'
+  }
   if ((d.mapSize ?? 0) === 0 && pushWithTokenCount.value === 0) {
     return '服务器 Redis 中没有任何 PushPlus Token（mapSize=0）。请重新打开「配置」粘贴 Token 并开启，保存成功后再点「立即推送」。'
   }
@@ -244,6 +246,7 @@ async function onPushAll() {
     const data = await runPushNow({})
     const result = data.result || {}
     if (result.bootstrapped) toast.success(result.message || '已初始化，之后才推新电报')
+    else if (result.backlogSkipped) toast.success(result.message || '已跳过积压')
     else if (result.skipped) toast.info(result.reason || '已跳过')
     else {
       toast.success(
@@ -253,6 +256,21 @@ async function onPushAll() {
     await loadPush()
   } catch (e) {
     toast.error(e?.message || '推送失败')
+  } finally {
+    pushBusy.value = false
+  }
+}
+
+async function onSkipBacklog() {
+  if (pushBusy.value) return
+  pushBusy.value = true
+  try {
+    const data = await runPushNow({ skipBacklog: true })
+    const result = data.result || {}
+    toast.success(result.message || `已跳过积压（标记 ${result.marked || 0} 条）`)
+    await loadPush()
+  } catch (e) {
+    toast.error(e?.message || '操作失败')
   } finally {
     pushBusy.value = false
   }
@@ -283,6 +301,9 @@ onMounted(() => {
     <div class="toolbar">
       <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
         立即推送
+      </button>
+      <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="onSkipBacklog">
+        跳过积压
       </button>
       <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="loadPush">
         刷新列表
