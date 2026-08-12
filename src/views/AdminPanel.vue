@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
-import { fetchPushUsers, runPushNow, saveUserPush, testUserPush } from '../api/push'
+import { fetchPushUsers, runPushNow, saveUserPush } from '../api/push'
 import { toast } from '../composables/toast'
 
 const features = ref(Object.fromEntries(FEATURE_DEFS.map((x) => [x.key, true])))
@@ -208,24 +208,6 @@ async function toggleEnabled(user) {
   }
 }
 
-async function onTest(user) {
-  if (pushBusy.value) return
-  if (!user.hasToken) {
-    openConfig(user)
-    toast.info('请先配置 Token')
-    return
-  }
-  pushBusy.value = true
-  try {
-    const data = await testUserPush({ username: user.username })
-    toast.success(data.message || '测试已发送')
-  } catch (e) {
-    toast.error(e?.message || '测试失败')
-  } finally {
-    pushBusy.value = false
-  }
-}
-
 async function onPushAll() {
   if (pushBusy.value) return
   pushBusy.value = true
@@ -315,9 +297,6 @@ onMounted(() => {
                 </button>
                 <button type="button" class="link" :disabled="pushBusy" @click="toggleEnabled(user)">
                   {{ user.enabled ? '关闭' : '开启' }}
-                </button>
-                <button type="button" class="link" :disabled="pushBusy" @click="onTest(user)">
-                  测试
                 </button>
               </td>
             </tr>
