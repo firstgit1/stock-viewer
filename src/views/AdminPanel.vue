@@ -176,9 +176,16 @@ async function saveModal() {
     }
     if (token) payload.token = token
     const saved = await saveUserPush(payload)
-    upsertLocalUser(saved)
-    toast.success(`已保存 ${saved.username}`)
     closeModal()
+    await loadPush()
+    const stillThere = pushUsers.value.some(
+      (u) => u.username.toLowerCase() === saved.username.toLowerCase() && u.hasToken,
+    )
+    if (!stillThere) {
+      toast.error('保存后刷新未读到该用户，请重试或检查 Redis 配置')
+      return
+    }
+    toast.success(`已保存 ${saved.username}`)
   } catch (e) {
     toast.error(e?.message || '保存失败')
   } finally {
