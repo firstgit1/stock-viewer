@@ -47,6 +47,7 @@ async function onLogout() {
       </nav>
       <div class="brand">数据看板</div>
       <div class="userbox">
+        <RouterLink to="/push-settings" class="settings-link">推送设置</RouterLink>
         <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
         <span v-if="username" class="user">
           {{ username }}
@@ -128,6 +129,26 @@ nav a.router-link-active {
   white-space: nowrap;
   font-size: 0.9rem;
   transition: 0.15s ease;
+}
+
+.settings-link {
+  padding: 7px 11px;
+  border-radius: 8px;
+  color: #7ed7f2;
+  border: 1px solid rgba(78, 182, 212, 0.35);
+  white-space: nowrap;
+  font-size: 0.9rem;
+  transition: 0.15s ease;
+}
+
+.settings-link:hover {
+  background: rgba(78, 182, 212, 0.12);
+}
+
+.settings-link.router-link-active {
+  color: #fff;
+  background: rgba(78, 182, 212, 0.22);
+  border-color: rgba(78, 182, 212, 0.5);
 }
 
 .admin-link:hover {

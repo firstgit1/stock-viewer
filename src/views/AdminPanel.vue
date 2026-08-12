@@ -1,24 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
-import { fetchPushConfig, runPushNow, savePushConfig, testPush } from '../api/push'
 import { toast } from '../composables/toast'
 
 const features = ref(Object.fromEntries(FEATURE_DEFS.map((x) => [x.key, true])))
 const loading = ref(true)
 const saving = ref(false)
 const loadError = ref('')
-
-const pushLoading = ref(true)
-const pushSaving = ref(false)
-const pushBusy = ref(false)
-const pushEnabled = ref(false)
-const pushTokenInput = ref('')
-const pushHasToken = ref(false)
-const pushTokenMasked = ref('')
-const pushLastRunAt = ref('')
-const pushLastResult = ref(null)
 
 async function load() {
   loading.value = true
@@ -30,22 +20,6 @@ async function load() {
     loadError.value = e?.message || '加载失败'
   } finally {
     loading.value = false
-  }
-}
-
-async function loadPush() {
-  pushLoading.value = true
-  try {
-    const config = await fetchPushConfig()
-    pushEnabled.value = Boolean(config.enabled)
-    pushHasToken.value = Boolean(config.hasToken)
-    pushTokenMasked.value = config.tokenMasked || ''
-    pushLastRunAt.value = config.lastRunAt || ''
-    pushLastResult.value = config.lastResult || null
-  } catch (e) {
-    toast.error(e?.message || '推送配置加载失败')
-  } finally {
-    pushLoading.value = false
   }
 }
 
@@ -72,62 +46,7 @@ async function toggle(key) {
   }
 }
 
-async function savePush() {
-  if (pushSaving.value) return
-  pushSaving.value = true
-  try {
-    const payload = { enabled: pushEnabled.value }
-    if (pushTokenInput.value.trim()) payload.token = pushTokenInput.value.trim()
-    const config = await savePushConfig(payload)
-    pushEnabled.value = Boolean(config.enabled)
-    pushHasToken.value = Boolean(config.hasToken)
-    pushTokenMasked.value = config.tokenMasked || ''
-    pushTokenInput.value = ''
-    pushLastRunAt.value = config.lastRunAt || ''
-    pushLastResult.value = config.lastResult || null
-    toast.success('推送配置已保存')
-  } catch (e) {
-    toast.error(e?.message || '保存失败')
-  } finally {
-    pushSaving.value = false
-  }
-}
-
-async function onTestPush() {
-  if (pushBusy.value) return
-  pushBusy.value = true
-  try {
-    const payload = {}
-    if (pushTokenInput.value.trim()) payload.token = pushTokenInput.value.trim()
-    const data = await testPush(payload)
-    toast.success(data.message || '测试已发送')
-  } catch (e) {
-    toast.error(e?.message || '测试失败')
-  } finally {
-    pushBusy.value = false
-  }
-}
-
-async function onRunNow() {
-  if (pushBusy.value) return
-  pushBusy.value = true
-  try {
-    const data = await runPushNow()
-    const result = data.result || {}
-    pushLastRunAt.value = data.config?.lastRunAt || pushLastRunAt.value
-    pushLastResult.value = result
-    if (result.bootstrapped) toast.success(result.message || '已初始化')
-    else toast.success(`检查完成：新 ${result.newCount || 0} 条，推送 ${result.pushed || 0} 条`)
-  } catch (e) {
-    toast.error(e?.message || '执行失败')
-  } finally {
-    pushBusy.value = false
-  }
-}
-
-onMounted(async () => {
-  await Promise.all([load(), loadPush()])
-})
+onMounted(load)
 </script>
 
 <template>
@@ -135,7 +54,7 @@ onMounted(async () => {
     <div class="page-head">
       <div>
         <h1>管理后台</h1>
-        <p class="muted">功能开关与微信推送配置。</p>
+        <p class="muted">全局功能开关。微信推送请到「推送设置」由每个用户自行配置 Token。</p>
       </div>
     </div>
 
@@ -143,6 +62,14 @@ onMounted(async () => {
       <template v-if="loadError">{{ loadError }}</template>
       <template v-else>加载中…</template>
     </p>
+
+    <section class="notice">
+      <p>
+        微信推送已改为用户级配置：每个账号登录后进入
+        <RouterLink to="/push-settings">推送设置</RouterLink>
+        ，填写自己的 PushPlus Token。
+      </p>
+    </section>
 
     <h2 class="section-title">功能开关</h2>
     <section class="panel">
@@ -177,66 +104,6 @@ onMounted(async () => {
         </div>
       </div>
     </section>
-
-    <h2 class="section-title">微信推送（PushPlus）</h2>
-    <p class="section-desc">
-      当前规则：每条新电报都推送。首次「立即检查」只做初始化，不会把历史消息刷屏。
-    </p>
-
-    <section class="panel push-panel" :class="{ dim: pushLoading }">
-      <label class="field">
-        <span>PushPlus Token</span>
-        <input
-          v-model="pushTokenInput"
-          type="password"
-          autocomplete="off"
-          :placeholder="pushHasToken ? `已保存：${pushTokenMasked}（留空则不修改）` : '粘贴你的用户 Token'"
-        />
-      </label>
-
-      <div class="push-row">
-        <div class="meta">
-          <h3>启用自动推送</h3>
-          <p>开启后，定时任务会检查新电报并推送到微信。</p>
-        </div>
-        <div class="control">
-          <span class="state" :class="{ on: pushEnabled }">
-            {{ pushEnabled ? '已开启' : '已关闭' }}
-          </span>
-          <button
-            type="button"
-            class="switch"
-            :class="{ on: pushEnabled }"
-            :disabled="pushLoading || pushSaving"
-            :aria-pressed="pushEnabled"
-            @click="pushEnabled = !pushEnabled"
-          >
-            <span class="knob" />
-          </button>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button type="button" :disabled="pushSaving || pushBusy" @click="savePush">
-          {{ pushSaving ? '保存中…' : '保存配置' }}
-        </button>
-        <button type="button" class="ghost" :disabled="pushBusy" @click="onTestPush">
-          发送测试
-        </button>
-        <button type="button" class="ghost" :disabled="pushBusy" @click="onRunNow">
-          立即检查
-        </button>
-      </div>
-
-      <p class="push-meta">
-        <template v-if="pushLastRunAt">上次检查：{{ pushLastRunAt }}</template>
-        <template v-else>尚未执行过检查</template>
-        <template v-if="pushLastResult">
-          · 结果：推送 {{ pushLastResult.pushed ?? 0 }} 条
-          <template v-if="pushLastResult.bootstrapped">（已初始化）</template>
-        </template>
-      </p>
-    </section>
   </div>
 </template>
 
@@ -252,20 +119,32 @@ onMounted(async () => {
   color: var(--danger);
 }
 
-.section-title {
-  margin: 18px 0 8px;
-  font-size: 1.15rem;
+.notice {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(78, 182, 212, 0.35);
+  border-radius: 12px;
+  background: rgba(62, 168, 196, 0.1);
+  color: #cfeef8;
+  font-size: 0.92rem;
 }
 
-.section-desc {
-  margin: 0 0 12px;
-  color: var(--muted);
-  font-size: 0.9rem;
+.notice p {
+  margin: 0;
+}
+
+.notice a {
+  color: #7ed7f2;
+  text-decoration: underline;
+}
+
+.section-title {
+  margin: 8px 0 10px;
+  font-size: 1.15rem;
 }
 
 .panel {
   position: relative;
-  margin-bottom: 18px;
 }
 
 .switch-list {
@@ -273,14 +152,12 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.switch-list.dim,
-.push-panel.dim {
+.switch-list.dim {
   opacity: 0.55;
   pointer-events: none;
 }
 
-.switch-row,
-.push-row {
+.switch-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -339,70 +216,12 @@ onMounted(async () => {
   justify-content: flex-end;
 }
 
-.switch:disabled {
-  opacity: 1;
-  cursor: wait;
-}
-
 .knob {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   background: #fff;
   display: block;
-}
-
-.push-panel {
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(27, 36, 48, 0.72);
-  display: grid;
-  gap: 14px;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field span {
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.field input {
-  width: 100%;
-}
-
-.push-row {
-  padding: 14px 0 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.actions .ghost {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--text);
-}
-
-.actions .ghost:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.push-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.86rem;
 }
 
 .overlay {
@@ -449,8 +268,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
-  .switch-row,
-  .push-row {
+  .switch-row {
     flex-direction: column;
     align-items: stretch;
   }

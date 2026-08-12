@@ -1,12 +1,12 @@
 export async function fetchPushConfig() {
-  const res = await fetch('/api/admin/push-config', { credentials: 'include' })
+  const res = await fetch('/api/push/config', { credentials: 'include' })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '加载推送配置失败')
   return data.config
 }
 
 export async function savePushConfig(payload) {
-  const res = await fetch('/api/admin/push-config', {
+  const res = await fetch('/api/push/config', {
     method: 'PUT',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -18,7 +18,7 @@ export async function savePushConfig(payload) {
 }
 
 export async function testPush(payload = {}) {
-  const res = await fetch('/api/admin/push-test', {
+  const res = await fetch('/api/push/test', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -30,7 +30,7 @@ export async function testPush(payload = {}) {
 }
 
 export async function runPushNow() {
-  const res = await fetch('/api/admin/push-run', {
+  const res = await fetch('/api/push/run', {
     method: 'POST',
     credentials: 'include',
   })
