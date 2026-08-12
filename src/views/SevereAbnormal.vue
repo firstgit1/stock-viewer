@@ -91,7 +91,7 @@ onMounted(load)
       </template>
     </p>
 
-    <div class="panel table-wrap">
+    <div class="panel table-wrap desktop-only">
       <table>
         <thead>
           <tr>
@@ -152,12 +152,66 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <div class="card-list mobile-only">
+      <p v-if="!loading && !filtered.length" class="empty-card">暂无数据</p>
+      <article
+        v-for="item in filtered"
+        :key="`m-${item._id}`"
+        class="stock-card"
+        :class="{ open: isExpanded(item._id) }"
+        @click="toggle(item._id)"
+      >
+        <div class="card-top">
+          <div class="card-title">
+            <h3>{{ item.name || '-' }}</h3>
+            <span class="code">{{ item.code || item.secucode || '-' }}</span>
+          </div>
+          <span class="remain" :class="{ urgent: Number(item.remaining_days) <= 2 }">
+            {{ item.remaining_days == null ? '-' : `剩 ${item.remaining_days} 天` }}
+          </span>
+        </div>
+        <div class="card-meta">
+          <span class="tag">严重异常波动</span>
+          <span class="meta-item">{{ item.market_name || item.market || '-' }}</span>
+          <span class="meta-item">公告 {{ item.notice_date || '-' }}</span>
+        </div>
+        <p class="card-range">
+          监控期 {{ item.monitor_start_date || '-' }} ~ {{ item.monitor_end_date || '-' }}
+        </p>
+        <div v-if="isExpanded(item._id)" class="detail" @click.stop>
+          <p>
+            <strong>异动类型：</strong>
+            {{ item.unusual_reason_type || '-' }}
+          </p>
+          <p>
+            <strong>异动区间：</strong>
+            {{ item.abnormal_start_date || '-' }}
+            ~
+            {{ item.abnormal_end_date || '-' }}
+          </p>
+          <p>
+            <strong>公告说明：</strong>
+            {{ item.unusual_reason || '-' }}
+          </p>
+        </div>
+        <p class="card-hint">{{ isExpanded(item._id) ? '收起详情' : '点击查看详情' }}</p>
+      </article>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .table-wrap {
   overflow-x: auto;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
 }
 
 table {
@@ -269,5 +323,96 @@ th {
   text-align: center;
   color: #b7c4d2;
   padding: 28px 10px;
+}
+
+.card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.stock-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(27, 36, 48, 0.95);
+  padding: 14px 14px 10px;
+  cursor: pointer;
+}
+
+.stock-card.open {
+  border-color: rgba(255, 120, 110, 0.35);
+  background: rgba(32, 40, 52, 0.98);
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.card-title .code {
+  font-size: 0.92rem;
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.meta-item {
+  color: #b7c4d2;
+  font-size: 0.86rem;
+}
+
+.card-range {
+  margin: 10px 0 0;
+  color: #c3d0de;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-card .detail {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(12, 18, 26, 0.75);
+  border: 1px solid rgba(132, 150, 168, 0.2);
+}
+
+.card-hint {
+  margin: 10px 0 0;
+  text-align: right;
+  color: #7f91a4;
+  font-size: 0.78rem;
+}
+
+.empty-card {
+  margin: 0;
+  text-align: center;
+  color: #b7c4d2;
+  padding: 28px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: grid;
+  }
 }
 </style>
