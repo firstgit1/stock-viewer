@@ -58,7 +58,8 @@ function localAuthApi() {
             return sendJson(res, await handleTestPush(req.headers.cookie || '', body))
           }
           if (url === '/api/push/run' && req.method === 'POST') {
-            return sendJson(res, await handleRunPush(req.headers.cookie || ''))
+            const body = await readJsonBody(req).catch(() => ({}))
+            return sendJson(res, await handleRunPush(req.headers.cookie || '', body || {}))
           }
           if (url === '/api/cron/telegraph-push' && (req.method === 'GET' || req.method === 'POST')) {
             const { runTelegraphPush } = await import('./lib/telegraph-push.js')

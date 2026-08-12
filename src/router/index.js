@@ -3,7 +3,6 @@ import { fetchMe } from '../api/auth'
 import FeatureGate from '../components/FeatureGate.vue'
 import AdminPanel from '../views/AdminPanel.vue'
 import Login from '../views/Login.vue'
-import PushSettings from '../views/PushSettings.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,12 +42,7 @@ const router = createRouter({
       props: { feature: 'severeAbnormal' },
       meta: { title: '严重异动', feature: 'severeAbnormal' },
     },
-    {
-      path: '/push-settings',
-      name: 'pushSettings',
-      component: PushSettings,
-      meta: { title: '推送设置' },
-    },
+    { path: '/push-settings', redirect: '/admin' },
     {
       path: '/admin',
       name: 'admin',

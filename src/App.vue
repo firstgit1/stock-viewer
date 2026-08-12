@@ -44,7 +44,6 @@ async function onLogout() {
         <RouterLink to="/telegraph">财联社电报</RouterLink>
         <RouterLink to="/search">搜索</RouterLink>
         <RouterLink to="/severe-abnormal">严重异动</RouterLink>
-        <RouterLink to="/push-settings">推送设置</RouterLink>
       </nav>
       <div class="brand">数据看板</div>
       <div class="userbox">

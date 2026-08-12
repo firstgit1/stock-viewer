@@ -1,11 +1,11 @@
-export async function fetchPushConfig() {
+export async function fetchPushUsers() {
   const res = await fetch('/api/push/config', { credentials: 'include' })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '加载推送配置失败')
-  return data.config
+  return data.users || []
 }
 
-export async function savePushConfig(payload) {
+export async function saveUserPush(payload) {
   const res = await fetch('/api/push/config', {
     method: 'PUT',
     credentials: 'include',
@@ -14,10 +14,10 @@ export async function savePushConfig(payload) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '保存失败')
-  return data.config
+  return data.user
 }
 
-export async function testPush(payload = {}) {
+export async function testUserPush(payload = {}) {
   const res = await fetch('/api/push/test', {
     method: 'POST',
     credentials: 'include',
@@ -29,10 +29,12 @@ export async function testPush(payload = {}) {
   return data
 }
 
-export async function runPushNow() {
+export async function runPushNow(payload = {}) {
   const res = await fetch('/api/push/run', {
     method: 'POST',
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.ok) throw new Error(data.message || '执行失败')
