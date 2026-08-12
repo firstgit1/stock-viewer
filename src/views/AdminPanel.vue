@@ -20,9 +20,11 @@ const modalUser = ref(null)
 const modalToken = ref('')
 const modalEnabled = ref(true)
 const modalUsername = ref('')
+const modalRule = ref('all')
+const modalKeywords = ref('')
 
 const modalTitle = computed(() =>
-  modalMode.value === 'add' ? '添加推送用户' : `配置 Token · ${modalUser.value?.username || ''}`,
+  modalMode.value === 'add' ? '添加推送用户' : `配置推送 · ${modalUser.value?.username || ''}`,
 )
 
 function statusText(user) {
@@ -35,6 +37,16 @@ function statusClass(user) {
   if (user.enabled && user.hasToken) return 'ok'
   if (user.hasToken) return 'off'
   return 'empty'
+}
+
+function ruleText(user) {
+  const mode = user?.mode || 'all'
+  if (mode === 'important') return '仅重要'
+  if (mode === 'keywords') {
+    const kws = user.keywords || []
+    return kws.length ? `关键词（${kws.slice(0, 2).join('、')}${kws.length > 2 ? '…' : ''}）` : '关键词'
+  }
+  return '全部'
 }
 
 function formatTime(iso) {
@@ -111,6 +123,8 @@ function openConfig(user) {
   modalUsername.value = user.username
   modalToken.value = ''
   modalEnabled.value = Boolean(user.enabled)
+  modalRule.value = user.mode || 'all'
+  modalKeywords.value = (user.keywords || []).join('，')
   modalOpen.value = true
 }
 
@@ -120,6 +134,8 @@ function openAdd() {
   modalUsername.value = ''
   modalToken.value = ''
   modalEnabled.value = true
+  modalRule.value = 'all'
+  modalKeywords.value = ''
   modalOpen.value = true
 }
 
@@ -128,6 +144,8 @@ function closeModal() {
   modalUser.value = null
   modalToken.value = ''
   modalUsername.value = ''
+  modalRule.value = 'all'
+  modalKeywords.value = ''
 }
 
 async function saveModal() {
@@ -143,12 +161,18 @@ async function saveModal() {
     toast.error('请填写 Token')
     return
   }
+  if (modalRule.value === 'keywords' && !modalKeywords.value.trim()) {
+    toast.error('关键词模式请至少填写一个关键词')
+    return
+  }
 
   pushBusy.value = true
   try {
     const payload = {
       username,
       enabled: modalEnabled.value,
+      mode: modalRule.value,
+      keywords: modalKeywords.value,
     }
     if (token) payload.token = token
     const saved = await saveUserPush(payload)
@@ -266,6 +290,7 @@ onMounted(() => {
               <th>用户名</th>
               <th>Token</th>
               <th>状态</th>
+              <th>规则</th>
               <th>上次推送</th>
               <th>推送条数</th>
               <th class="ops">操作</th>
@@ -273,7 +298,7 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-if="!pushUsers.length">
-              <td colspan="6" class="empty">暂无用户，可点击「添加用户」或等新账号注册后刷新。</td>
+              <td colspan="7" class="empty">暂无用户，可点击「添加用户」或等新账号注册后刷新。</td>
             </tr>
             <tr v-for="user in pushUsers" :key="user.username">
               <td class="name">{{ user.username }}</td>
@@ -281,11 +306,12 @@ onMounted(() => {
               <td>
                 <span class="badge" :class="statusClass(user)">{{ statusText(user) }}</span>
               </td>
+              <td class="rule">{{ ruleText(user) }}</td>
               <td class="time">{{ formatTime(user.lastRunAt) }}</td>
               <td class="count">{{ lastPushCount(user) }}</td>
               <td class="ops">
                 <button type="button" class="link" :disabled="pushBusy" @click="openConfig(user)">
-                  配置 Token
+                  配置
                 </button>
                 <button type="button" class="link" :disabled="pushBusy" @click="toggleEnabled(user)">
                   {{ user.enabled ? '关闭' : '开启' }}
@@ -357,6 +383,23 @@ onMounted(() => {
           <p v-if="modalMode === 'edit' && modalUser?.hasToken" class="token-hint">
             当前 Token：{{ modalUser.tokenMasked }}
           </p>
+          <label class="field">
+            <span>推送规则</span>
+            <select v-model="modalRule">
+              <option value="all">全部新电报</option>
+              <option value="important">仅重要（A/B 级或加红）</option>
+              <option value="keywords">关键词匹配</option>
+            </select>
+          </label>
+          <label v-if="modalRule === 'keywords'" class="field">
+            <span>关键词（逗号分隔，命中任一即推送）</span>
+            <input
+              v-model="modalKeywords"
+              type="text"
+              autocomplete="off"
+              placeholder="如：涨停，新能源，芯片"
+            />
+          </label>
           <label class="check">
             <input v-model="modalEnabled" type="checkbox" />
             开启推送
@@ -481,10 +524,17 @@ onMounted(() => {
 }
 
 .time,
-.count {
+.count,
+.rule {
   font-size: 0.86rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.rule {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ops {
@@ -536,13 +586,18 @@ onMounted(() => {
   color: var(--muted);
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(12, 18, 26, 0.85);
   color: var(--text);
   padding: 9px 12px;
+}
+
+.field select {
+  appearance: none;
 }
 
 .check {
