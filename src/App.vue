@@ -44,10 +44,10 @@ async function onLogout() {
         <RouterLink to="/telegraph">财联社电报</RouterLink>
         <RouterLink to="/search">搜索</RouterLink>
         <RouterLink to="/severe-abnormal">严重异动</RouterLink>
+        <RouterLink to="/push-settings">推送设置</RouterLink>
       </nav>
       <div class="brand">数据看板</div>
       <div class="userbox">
-        <RouterLink to="/push-settings" class="settings-link">推送设置</RouterLink>
         <RouterLink v-if="isAdmin" to="/admin" class="admin-link">管理后台</RouterLink>
         <span v-if="username" class="user">
           {{ username }}
