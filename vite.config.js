@@ -46,20 +46,6 @@ function localAuthApi() {
             const body = await readJsonBody(req)
             return sendJson(res, await handleUpdateFeatures(req.headers.cookie || '', body))
           }
-          if (url === '/api/admin/push-config' && req.method === 'GET') {
-            return sendJson(res, await handleGetPushConfig(req.headers.cookie || ''))
-          }
-          if (url === '/api/admin/push-config' && (req.method === 'PUT' || req.method === 'POST')) {
-            const body = await readJsonBody(req)
-            return sendJson(res, await handleSavePushConfig(req.headers.cookie || '', body))
-          }
-          if (url === '/api/admin/push-test' && req.method === 'POST') {
-            const body = await readJsonBody(req)
-            return sendJson(res, await handleTestPush(req.headers.cookie || '', body))
-          }
-          if (url === '/api/admin/push-run' && req.method === 'POST') {
-            return sendJson(res, await handleRunPush(req.headers.cookie || ''))
-          }
           if (url === '/api/push/config' && req.method === 'GET') {
             return sendJson(res, await handleGetPushConfig(req.headers.cookie || ''))
           }
