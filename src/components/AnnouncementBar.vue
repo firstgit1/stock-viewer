@@ -8,7 +8,7 @@ const props = defineProps({
 
 const enabled = ref(false)
 const text = ref('')
-const durationSec = ref(18)
+const durationSec = ref(22)
 
 const visible = computed(() => props.active && enabled.value && Boolean(text.value.trim()))
 
@@ -31,8 +31,9 @@ async function load() {
 function tuneSpeed() {
   const len = text.value.length
   const mobile = typeof window !== 'undefined' && window.innerWidth <= 768
-  const base = mobile ? 10 : 14
-  durationSec.value = Math.min(48, Math.max(12, base + len * 0.12))
+  // 单条从右侧进、左侧出，路程更长，略放慢
+  const base = mobile ? 16 : 20
+  durationSec.value = Math.min(60, Math.max(16, base + len * 0.22))
 }
 
 watch(text, tuneSpeed)
@@ -62,10 +63,9 @@ defineExpose({ reload: load })
       </svg>
     </span>
     <div class="viewport">
-      <div class="track" :style="{ animationDuration: `${durationSec}s` }">
+      <p class="track" :style="{ animationDuration: `${durationSec}s` }">
         <span class="msg">{{ text }}</span>
-        <span class="msg" aria-hidden="true">{{ text }}</span>
-      </div>
+      </p>
     </div>
   </div>
 </template>
@@ -76,15 +76,20 @@ defineExpose({ reload: load })
   align-items: center;
   gap: 10px;
   min-height: 36px;
-  padding: 6px 14px;
+  padding: 7px 14px;
   border-bottom: 1px solid rgba(212, 162, 76, 0.28);
-  background: linear-gradient(90deg, rgba(212, 162, 76, 0.16), rgba(47, 143, 102, 0.1));
+  background: #161d27;
   color: #f0d59a;
+  box-sizing: border-box;
 }
 
 .horn {
   flex: 0 0 auto;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   color: var(--warn);
   opacity: 0.95;
 }
@@ -93,34 +98,37 @@ defineExpose({ reload: load })
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 
 .track {
-  display: inline-flex;
-  width: max-content;
+  display: inline-block;
+  margin: 0;
+  max-width: none;
   white-space: nowrap;
-  animation-name: marquee;
+  /* 先空出一整屏，文字从右侧进入；滚完一整段后再循环 */
+  padding-left: 100%;
+  animation-name: marquee-once;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   will-change: transform;
 }
 
 .msg {
-  flex: 0 0 auto;
-  padding-right: 3rem;
   font-size: 0.9rem;
   letter-spacing: 0.02em;
   color: #f3e0b0;
 }
 
-@keyframes marquee {
-  from {
+@keyframes marquee-once {
+  0% {
     transform: translateX(0);
   }
-  to {
-    transform: translateX(-50%);
+  /* 滚出后稍停，避免立刻又从右边贴上来 */
+  92% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }
 
@@ -128,11 +136,10 @@ defineExpose({ reload: load })
   .announce {
     gap: 8px;
     min-height: 34px;
-    padding: 5px 10px;
+    padding: 6px 10px;
   }
 
   .msg {
-    padding-right: 2.2rem;
     font-size: 0.84rem;
   }
 }
@@ -141,17 +148,12 @@ defineExpose({ reload: load })
   .track {
     animation: none;
     transform: none;
+    padding-left: 0;
   }
 
   .viewport {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-
-  .msg + .msg {
-    display: none;
   }
 }
 </style>

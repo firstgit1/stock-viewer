@@ -75,6 +75,7 @@ async function onLogout() {
   position: sticky;
   top: 0;
   z-index: 20;
+  background: var(--bg, #10151c);
 }
 
 .topbar {
@@ -84,7 +85,7 @@ async function onLogout() {
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--line);
-  background: rgba(16, 21, 28, 0.82);
+  background: rgba(16, 21, 28, 0.96);
   backdrop-filter: blur(10px);
 }
 
