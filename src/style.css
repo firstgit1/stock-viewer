@@ -177,6 +177,14 @@ code {
   color: #ff8f82;
 }
 
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none !important;
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 16px 12px 88px;

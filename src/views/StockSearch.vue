@@ -194,11 +194,10 @@ tbody tr:hover {
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 .mobile-list {
-  display: none;
   flex-direction: column;
   gap: 10px;
 }
@@ -239,12 +238,12 @@ tbody tr:hover {
 
 @media (max-width: 768px) {
   .desktop-only {
-    display: none;
+    display: none !important;
   }
 
   .mobile-only,
   .mobile-list {
-    display: flex;
+    display: flex !important;
   }
 }
 </style>

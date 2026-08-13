@@ -211,7 +211,7 @@ onMounted(load)
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 table {
@@ -326,7 +326,6 @@ th {
 }
 
 .card-list {
-  display: grid;
   gap: 10px;
 }
 

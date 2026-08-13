@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { FEATURE_DEFS } from '../api/feature-defs'
 import { fetchFeatures, updateFeatures } from '../api/features'
 import { fetchAnnouncement, updateAnnouncement } from '../api/announcement'
-import { fetchPushUsers, runPushNow, saveUserPush } from '../api/push'
+import { fetchPushUsers, saveUserPush } from '../api/push'
 import { toast } from '../composables/toast'
 
 const features = ref(Object.fromEntries(FEATURE_DEFS.map((x) => [x.key, true])))
@@ -16,16 +16,6 @@ const announceText = ref('')
 const announceSaving = ref(false)
 const announceLoading = ref(true)
 const announceStorage = ref('none')
-
-const announceStorageWarning = computed(() => {
-  if (announceStorage.value === 'local') {
-    return '当前公告只保存在本机，不会出现在正式站。请到 https://stock-viewer-kappa.vercel.app 管理后台重新填写并保存。'
-  }
-  if (announceStorage.value === 'none') {
-    return '未检测到可用存储，公告无法持久化。'
-  }
-  return ''
-})
 
 const pushUsers = ref([])
 const pushLoading = ref(true)
@@ -41,7 +31,7 @@ const pushStorageWarning = computed(() => {
     return '当前环境未配置 Upstash Redis（多半是本地开发）。这里保存的 Token 不会进线上，cron-job.org 也推不到微信。请打开正式站 https://stock-viewer-kappa.vercel.app 管理后台重新配置；本地调试请在项目根目录建 .env 并填入与 Vercel 相同的 UPSTASH_REDIS_REST_URL / TOKEN。'
   }
   if ((d.mapSize ?? 0) === 0 && pushWithTokenCount.value === 0) {
-    return '服务器 Redis 中没有任何 PushPlus Token（mapSize=0）。请重新打开「配置」粘贴 Token 并开启，保存成功后再点「立即推送」。'
+    return '服务器 Redis 中没有任何 PushPlus Token（mapSize=0）。请重新打开「配置」粘贴 Token 并开启后保存。'
   }
   if (pushEnabledCount.value === 0) {
     return '已有 Token 的用户数为 0 或均未开启，定时任务不会发微信。'
@@ -297,43 +287,6 @@ async function toggleEnabled(user) {
   }
 }
 
-async function onPushAll() {
-  if (pushBusy.value) return
-  pushBusy.value = true
-  try {
-    const data = await runPushNow({})
-    const result = data.result || {}
-    if (result.bootstrapped) toast.success(result.message || '已初始化，之后才推新电报')
-    else if (result.backlogSkipped) toast.success(result.message || '已跳过积压')
-    else if (result.skipped) toast.info(result.reason || '已跳过')
-    else {
-      toast.success(
-        `推送完成：新 ${result.newCount || 0} 条，发出 ${result.pushed || 0} 条，覆盖 ${result.userCount || 0} 人`,
-      )
-    }
-    await loadPush()
-  } catch (e) {
-    toast.error(e?.message || '推送失败')
-  } finally {
-    pushBusy.value = false
-  }
-}
-
-async function onSkipBacklog() {
-  if (pushBusy.value) return
-  pushBusy.value = true
-  try {
-    const data = await runPushNow({ skipBacklog: true })
-    const result = data.result || {}
-    toast.success(result.message || `已跳过积压（标记 ${result.marked || 0} 条）`)
-    await loadPush()
-  } catch (e) {
-    toast.error(e?.message || '操作失败')
-  } finally {
-    pushBusy.value = false
-  }
-}
-
 onMounted(() => {
   loadFeatures()
   loadPush()
@@ -358,12 +311,6 @@ onMounted(() => {
     <h2 class="section-title">微信推送</h2>
     <p v-if="pushStorageWarning" class="status error">{{ pushStorageWarning }}</p>
     <div class="toolbar">
-      <button type="button" class="primary" :disabled="pushBusy || pushLoading" @click="onPushAll">
-        立即推送
-      </button>
-      <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="onSkipBacklog">
-        跳过积压
-      </button>
       <button type="button" class="ghost" :disabled="pushBusy || pushLoading" @click="loadPush">
         刷新列表
       </button>
@@ -442,9 +389,7 @@ onMounted(() => {
     </section>
 
     <h2 class="section-title">站点公告</h2>
-    <p v-if="announceStorageWarning" class="status error">{{ announceStorageWarning }}</p>
-    <section class="panel announce-panel" :class="{ dim: announceLoading || announceSaving }">
-      <p class="muted announce-hint">登录后页面顶部小喇叭滚动展示；关闭或清空后不显示。</p>
+    <section class="announce-block" :class="{ dim: announceLoading || announceSaving }">
       <div class="announce-form">
         <label class="field announce-text">
           <span>公告内容（最多 500 字）</span>
@@ -602,7 +547,7 @@ onMounted(() => {
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 .toolbar {
@@ -673,7 +618,6 @@ onMounted(() => {
 }
 
 .push-cards {
-  display: grid;
   gap: 10px;
 }
 
@@ -837,11 +781,6 @@ onMounted(() => {
   appearance: none;
 }
 
-.announce-hint {
-  margin: 0 0 14px;
-  font-size: 0.88rem;
-}
-
 .announce-form {
   display: grid;
   gap: 14px;
@@ -855,7 +794,11 @@ onMounted(() => {
   gap: 12px;
 }
 
-.announce-panel.dim {
+.announce-block {
+  margin-bottom: 22px;
+}
+
+.announce-block.dim {
   opacity: 0.72;
   pointer-events: none;
 }
