@@ -86,6 +86,14 @@ function lastPushCount(user) {
   return String(n)
 }
 
+function lastPushModeText(user) {
+  const mode = user?.lastResult?.mode
+  if (!mode) return ''
+  if (mode === 'important') return '仅重要'
+  if (mode === 'keywords') return '关键词'
+  return '全部'
+}
+
 async function loadFeatures() {
   loading.value = true
   loadError.value = ''
@@ -347,7 +355,10 @@ onMounted(() => {
               </td>
               <td class="rule">{{ ruleText(user) }}</td>
               <td class="time">{{ formatTime(user.lastRunAt) }}</td>
-              <td class="count">{{ lastPushCount(user) }}</td>
+              <td class="count">
+                {{ lastPushCount(user) }}
+                <span v-if="lastPushModeText(user)" class="last-mode">（{{ lastPushModeText(user) }}）</span>
+              </td>
               <td class="ops">
                 <button type="button" class="link" :disabled="pushBusy" @click="openConfig(user)">
                   配置
@@ -374,7 +385,7 @@ onMounted(() => {
           <div class="card-meta">
             <span>规则 {{ ruleText(user) }}</span>
             <span>上次 {{ formatTime(user.lastRunAt) }}</span>
-            <span>条数 {{ lastPushCount(user) }}</span>
+            <span>条数 {{ lastPushCount(user) }}<template v-if="lastPushModeText(user)">（{{ lastPushModeText(user) }}）</template></span>
           </div>
           <div class="card-actions">
             <button type="button" class="ghost-btn" :disabled="pushBusy" @click="openConfig(user)">
@@ -702,14 +713,21 @@ onMounted(() => {
 }
 
 .time,
-.count,
-.rule {
+.count {
   font-size: 0.86rem;
   color: var(--muted);
   white-space: nowrap;
 }
 
+.last-mode {
+  color: #8b9aab;
+  font-size: 0.78rem;
+}
+
 .rule {
+  font-size: 0.86rem;
+  color: var(--muted);
+  white-space: nowrap;
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
